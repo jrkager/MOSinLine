@@ -1,8 +1,6 @@
 # ------------------
 # Import codebase of RLRP and PATT
 # ------------------
-from notebook.auth import passwd
-
 from patt.alns4 import ComprehensiveSolution
 import patt.alns4 as alns4
 
@@ -12,6 +10,7 @@ import rlrp.applications.lrp.model as rlrp_model
 import rlrp.applications.lrp.instance as rlrp_instance
 
 from statistics import mean
+from math import hypot
 
 import json
 
@@ -119,24 +118,33 @@ class Instance:
     depots: List[Depot] # have negative index
     stores: List[Store] # have positive index
     locations: Dict[Node, Tuple[float, float]] # dict of location (node) id to coordinates. depots have negative ids, stores have positive ids
+
     demands: Dict[int, Dict[Tuple[Node, ProductClass, Weekday], float]] # dict of scenario to dict of location id, product class, weekday to demand. this is the nominal demand for each scenario. SIM generates its own N relaziations then
-    transportation_costs: Dict[Tuple[Node, Node], float] # dict of (location id 1, location id 2) to transportation cost per unit of demand. contains both directions. c in johannes and c^TR in kailin
-    fixed_co2_emissions: Dict[Tuple[Node,Node], float] # dict of (location id 1, location id 2) to fixed CO2 emissions for empty vehicle visiting travelling this arc. alpha in johannes and e^P0 in kailin
-    marginal_co2_emissions: Dict[Tuple[Node,Node], float] # dict of (location id 1, location id 2) to marginal CO2 emissions per unit of demand for travelling this arc. gamma in johannes and e^P1 in kailin
+
+    # todo this value is not read in alns model yet
+    pattern_operational_costs: Dict[Tuple[Store, Pattern], float] # dict of (store_id, pattern) to operational cost for using this pattern at this store. only needed for kailin, not available in johannes
+    # todo this value is not read in alns model yet
+    foodwaste_emissions_factor: Dict[Tuple[Store, Pattern], float] # dict of (store_id, pattern) to CO2 emissions for food waste for using this pattern at this store. only needed for kailin, not available in johannes
+
+    distances: Dict[Tuple[Node, Node], float] # dict of (location id 1, location id 2) to distance of arc. contains both directions. c in johannes and c^TR/c_km in kailin
+    cost_per_km: float # cost per km for transportation. c_km = 2.0 kailin
+    vehicle_capacity: float # capacity of the delivery vehicles. Q in johannes and Q in kailin
+    vehicle_empty_weight: float # weight of empty vehicle. W0 in kailin
+
+    # fixed_co2_emissions = marginal * curb_weight
+    marginal_co2_emissions: float # dict of (location id 1, location id 2) to marginal CO2 emissions per unit of demand and per distance. gamma/distance in johannes and e^P1?? in kailin. eta*beta*theta_TR in original kailin code
+
     fixed_warehouse_costs: Dict[Depot, float] # dict of depot_id to fixed cost for opening warehouse depot_id at the position of WH candidate depot_id. e in johannes (f in code) and not available in kailin
     marginal_warehouse_costs: Dict[Depot, float] # dict of depot_id to marginal cost per unit of size for opening warehouse depot_id at the position of WH candidate depot_id. d in johannes (d in code) and not available in kailin
     max_warehouse_size: Dict[Depot, float] # dict of depot_id to maximum warehouse size at the position of WH candidate depot_id. A in johannes and not available in kailin
+
     second_stage_penalty_factor: float # penalty factor for warehouse costs in the second stage. 1.5 in the old instances of johannes
-    vehicle_capacity: float # capacity of the delivery vehicles. Q in johannes and not available in kailin
-    pattern_operational_costs: Dict[Tuple[Store, Pattern], float] # dict of (store_id, pattern) to operational cost for using this pattern at this store. only needed for kailin, not available in johannes
-    foodwaste_emissions: Dict[Tuple[Store, Pattern], float] # dict of (store_id, pattern) to CO2 emissions for food waste for using this pattern at this store. only needed for kailin, not available in johannes
+
     weighting_factor_patt: float # factor for weighting the two objectives in the combined objective function in kailins model (lambda).
     weighting_factor_rlrp: float # factor for weighting the two objectives in the combined objective function in johannes model (was 0.5).
+
     number_of_realizations: int # N in SIM
 
-    # todo kailin code has to read certain costs and parameters from this instance class. the instance files will be created as it is originally in kailins code
-
-    # todo johannes: the objects needeed for johannes algorithm will be created by a function of this class, and the can be passed to johannes algorithm. no files needed
 
     def aggregate_demands_patt(self):
         """
@@ -187,7 +195,7 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
     # add other coefficients from instance
     def reduce_depots(costs_dict):
         ret = {}
-        for (n1, n2), c in instance.transportation_costs:
+        for (n1, n2), c in instance.distances:
             if n1 < 0 and n1 != depot_id or n2 < 0 and n2 != depot_id:
                 continue
             if n1 == depot_id:
@@ -196,9 +204,8 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
                 n2 = 0
             ret[(n1,n2)] = c
         return ret
-    json_dict["transportation_costs"] = reduce_depots(instance.transportation_costs)
-    json_dict["fixed_co2_emissions"] = reduce_depots(instance.fixed_co2_emissions)
-    json_dict["marginal_co2_emissions"] = reduce_depots(instance.marginal_co2_emissions)
+    json_dict["distances"] = reduce_depots(instance.distances)
+    json_dict["marginal_co2_emissions"] = instance.marginal_co2_emissions
     json_dict["vehicle_capacity"] = instance.vehicle_capacity
     json_dict["pattern_operational_costs"] = instance.pattern_operational_costs
     json_dict["foodwaste_emissions"] = instance.foodwaste_emissions
@@ -209,16 +216,14 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
     return filename
 
 def create_rlrp_instance_data(inst: Instance, gap, timelimit) -> (rlrp_classes.AlgorithmParams, rlrp_instance.Instance):
-    c_ij = inst.fixed_warehouse_costs
-
     rlrpinstance = rlrp_instance.Instance(I=inst.depots,
                                           J=inst.stores,
                                           beta_k_j=inst.aggregate_demands_rlrp(option = 1),
                                           f_i=inst.fixed_warehouse_costs,
                                           d_i=inst.marginal_warehouse_costs,
-                                          c_ij=c_ij,
-                                          alpha_ij=inst.fixed_co2_emissions,
-                                          gamma_ij=inst.marginal_co2_emissions,
+                                          c_ij={k : v * inst.cost_per_km for k,v in inst.distances.items()},
+                                          alpha_ij={k : inst.marginal_co2_emissions * v * inst.vehicle_empty_weight for k,v in inst.distances.items()},
+                                          gamma_ij={k : inst.marginal_co2_emissions * v for k,v in inst.distances.items()},
                                           F=0,
                                           C_i=inst.max_warehouse_size,
                                           Q=inst.vehicle_capacity,
@@ -243,16 +248,87 @@ if __name__ == "main":
     parser = argparse.ArgumentParser()
     parser.parse_args()
 
-    instance = Instance()
+
+    depots: List[Depot] = [-1, -2, -3]
+    stores: List[Store] = [12, 77, 49, 9, 1]
+
+    # locations: include 3 depots + 5 stores
+    locations: Dict[Node, Tuple[float, float]] = {}
+
+    locations[-1] = (35.0, 35.0)
+    locations[-2] = (45.0, 15.0)
+    locations[-3] = (2.0, 23.0)
+    locations[12] = (50.0, 35.0)
+    locations[77] = (53.0, 43.0)
+    locations[49] = (6.0, 68.0)
+    locations[9] = (55.0, 60.0)
+    locations[1] = (41.0, 49.)
+
+    demand = {12: 19, 77: 14, 49: 30, 9: 16, 1: 10}
+
+    # demands: 3 scenarios ("s3" in name). same nominal demands per scenario.
+    # We put all demand on Monday, ProductClass.DEFAULT.
+    demands_per_scenario: Dict[Tuple[Node, ProductClass, Weekday], float] = {(n,p,w) : demand[n] for n in stores for p in ProductClass for w in Weekday}
+
+    # 3 scenarios
+    demands = {0: dict(demands_per_scenario),
+               1: dict(demands_per_scenario),
+               2: dict(demands_per_scenario)}
+
+    # distances: euclidean between all nodes, both directions (includes (i,i)=0 too)
+    nodes: List[Node] = depots + stores
+    distances: Dict[Tuple[Node, Node], float] = {}
+    for i in nodes:
+        xi, yi = locations[i]
+        for j in nodes:
+            xj, yj = locations[j]
+            distances[(i, j)] = hypot(xi - xj, yi - yj)
+
+    pattern_operational_costs = None
+    foodwaste_emissions_factor = None
+
+    # warehouse cost params (choose simple, consistent values)
+    fixed_warehouse_costs = {d: 200_000.0 for d in depots}
+    marginal_warehouse_costs = {d: 50.0 for d in depots}
+    max_warehouse_size = {d: 500.0 for d in depots}
+
+    # fill remaining scalars (use your provided ones + sensible defaults)
+    inst = Instance(
+        instance_name="R101_5stores_s3",
+        depots=depots,
+        stores=stores,
+        locations=locations,
+        demands=demands,
+
+        pattern_operational_costs=pattern_operational_costs,
+        foodwaste_emissions_factor=foodwaste_emissions_factor,
+
+        distances=distances,
+        cost_per_km=2.0,
+        vehicle_capacity=44,
+        vehicle_empty_weight=8,
+        marginal_co2_emissions=0.05 * 1 * 2.7,
+
+        fixed_warehouse_costs=fixed_warehouse_costs,
+        marginal_warehouse_costs=marginal_warehouse_costs,
+        max_warehouse_size=max_warehouse_size,
+        second_stage_penalty_factor=1.5,
+
+        weighting_factor_patt=0.3,
+        weighting_factor_rlrp=0.5,
+
+        number_of_realizations=10,
+    )
+
 
     try:
-        _, ret = rlrp_main(params=create_rlrp_instance_data(instance, gap = 0.05, timelimit = 1800))
+        _, ret = rlrp_main(params=create_rlrp_instance_data(inst, gap = 0.05, timelimit = 1800))
     except rlrp_classes.TimeoutException as e:
         raise TimeoutError(f"RLRP algorithm timed out. Reached gap: {e.reached_gap*100:.2f}%")
 
     rlrp_result = RLRPResult(ret)
 
-    patt_instance_file_name = create_patt_instance_data(instance, rlrp_result, depot_id = -1)
+    patt_instance_file_name = create_patt_instance_data(inst, rlrp_result, depot_id = -1)
     alns_solution: ComprehensiveSolution
     alns_instance_data: ALNSInstanceData
     alns_solution, alns_instance_data = alns4.main(instance_file_name=patt_instance_file_name)
