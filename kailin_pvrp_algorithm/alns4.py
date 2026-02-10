@@ -2789,6 +2789,11 @@ def print_comprehensive_solution(solution, instance_data, alns):
         print(f"  {day_names[day]}: {deliveries} deliveries")
     
     print("\n" + "="*100)
+
+
+
+
+
 if __name__ == "__main__":
     allp = [p for p in itertools.product([0,1], repeat=6) if sum(p) >= 2]
     for i,p in enumerate(allp):
@@ -2796,8 +2801,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         instance_file = sys.argv[1]
     else:
-        instance_file = "instances/R101_30stores_s2.json"
-    
+        # instance_file = "instances/R101_30stores_s2.json"
+        instance_file = "instances/R101_5stores_s2.json"
+
     print(f"Loading instance: {instance_file}")
     instance_data = load_instance(instance_file)
     instance_name = instance_data['instance_name']
