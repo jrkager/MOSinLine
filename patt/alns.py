@@ -2516,9 +2516,9 @@ def save_comprehensive_results(solution, instance_data, runtime):
         "model_type": "comprehensive_alns",
         "constraint_violations": len(final_violations)
     }
-    os.makedirs("results", exist_ok=True)
+    os.makedirs("results_patt", exist_ok=True)
     df = pd.DataFrame([results_data])
-    result_file = os.path.join("results", f"comprehensive_alns_{instance_name}.csv")
+    result_file = os.path.join("results_patt", f"comprehensive_alns_{instance_name}.csv")
     
     if os.path.exists(result_file):
         df.to_csv(result_file, mode='a', index=False, header=False)
@@ -2565,7 +2565,7 @@ def save_comprehensive_results(solution, instance_data, runtime):
                         readable_route.append(store_id_mapping.get(node, node))
                 solution_details["daily_routes"][str(day)][str(vehicle)] = readable_route
     
-    solution_file = os.path.join("results", f"comprehensive_alns_solution_{instance_name}.json")
+    solution_file = os.path.join("results_patt", f"comprehensive_alns_solution_{instance_name}.json")
     with open(solution_file, 'w') as f:
         json.dump(solution_details, f, indent=2)
     print(f"✅ Detailed solution saved to {solution_file}")
@@ -2899,8 +2899,8 @@ def main(instance_file_name=None):
         }
     ))
 
-    os.makedirs("results", exist_ok=True)
-    op_latex_path = os.path.join("results", f"operator_performance_{instance_name}.tex")
+    os.makedirs("results_patt", exist_ok=True)
+    op_latex_path = os.path.join("results_patt", f"operator_performance_{instance_name}.tex")
 
     with open(op_latex_path, "w", encoding="utf-8") as f:
         f.write("\\begin{table}[ht]\n")
@@ -2933,7 +2933,7 @@ def main(instance_file_name=None):
         pattern_df = pd.DataFrame(pattern_history, columns=cols)
         pattern_df.insert(0, "iteration", range(len(pattern_history)))
         
-        pattern_csv_path = os.path.join("results", f"pattern_trajectory_{instance_name}.csv")
+        pattern_csv_path = os.path.join("results_patt", f"pattern_trajectory_{instance_name}.csv")
         pattern_df.to_csv(pattern_csv_path, index=False)
         print(f"\nPattern trajectory saved to {pattern_csv_path}")
     print(f"\n--- Pattern Assignment Summary ---")
@@ -2995,7 +2995,7 @@ def main(instance_file_name=None):
     print("✅ Exact cost calculations from comprehensive model")
     print("✅ NOW ENFORCES: Daily delivery bounds and store capacity constraints")
     print(f"{'='*100}")
-    gurobi_file = os.path.join("results", f"gurobi_{instance_name}.csv")
+    gurobi_file = os.path.join("results_patt", f"gurobi_{instance_name}.csv")
     if os.path.exists(gurobi_file):
         print("\n--- Comparison with Gurobi ---")
         gurobi_df = pd.read_csv(gurobi_file)

@@ -1,8 +1,8 @@
 # ------------------
 # Import codebase of RLRP and PATT
 # ------------------
-from patt.alns4 import ComprehensiveSolution
-import patt.alns4 as alns4
+from patt.alns import ComprehensiveSolution
+import patt.alns as alns4
 
 import rlrp.classes as rlrp_classes
 from rlrp.algorithm import ourAlgorithm as rlrp_main
@@ -43,13 +43,13 @@ class RLRPResult:
         self.customer_depot_assignment = ret.customer_depot_assignment
 
     def __hash__(self):
-        return 0 # todo create unique hash
+        return hash(str(self.depot_sizes)+"CONCAT"+str(self.customer_depot_assignment))
 
 # delivery pattern for a store is a tuple of 6 ints (0 or 1) indicating delivery on each day of the week
 class Pattern(tuple): pass
 
 class ALNSInstanceData(Dict):
-    # dict as passed to print_comprehensive_solution in alns4.py, containing keys ['stores', 'store_id_mapping', 'loc', 'daily_demands', 'instance_name']
+    # dict as passed to print_comprehensive_solution in alns.py, containing keys ['stores', 'store_id_mapping', 'loc', 'daily_demands', 'instance_name']
     pass
 
 @dataclass
@@ -192,7 +192,7 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
     if len(depot_stores) == 0:
         return None
     filename=f"temp-{instance.instance_name}-{depot_id}-{scenario}-{hash(RLRP_result)}.json"
-    json_dict = {"instance_name": instance.instance_name,
+    json_dict = {"instance_name": f"{instance.instance_name}-{depot_id}-{scenario}",
                  "depot": {"x": instance.locations[depot_id][0], "y": instance.locations[depot_id][1], "demand": 0},
                  "stores": list(range(1,len(depot_stores)+1)),
                  "id_map": {str(i+1):st for i, st in enumerate(depot_stores)},
