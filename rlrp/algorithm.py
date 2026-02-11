@@ -7,21 +7,21 @@ import numpy as np
 
 ALG_VERSION = "v2"
 
-from heuristics import timelimit_heuristic
+from .heuristics import timelimit_heuristic
 
-import helper
+from . import helper
 getValueArray = helper.getValueArray
 roundBinaryValue = helper.roundBinaryValue
-from helper import vprint, fseconds
+from .helper import vprint, fseconds
 
-from algorithm_types import AlgorithmType
-from algorithm_types import ChooseNextTypes as ctypes
-from algorithm_types import AlgorithmTypes as types
-from algorithm_types import InterruptConsequence
-from algorithm_types import AlgorithmOptions
+from .algorithm_types import AlgorithmType
+from .algorithm_types import ChooseNextTypes as ctypes
+from .algorithm_types import AlgorithmTypes as types
+from .algorithm_types import InterruptConsequence
+from .algorithm_types import AlgorithmOptions
 
-from applications import SecondStageModelType
-from classes import SecondStagePlaceholder, AlgorithmStats, AlgorithmParams, TimeoutException, LRPReturnObject
+from .applications import SecondStageModelType
+from .classes import SecondStagePlaceholder, AlgorithmStats, AlgorithmParams, TimeoutException, LRPReturnObject
 
 
 class StopAlgException(Exception):
@@ -733,9 +733,9 @@ def algorithm(params: AlgorithmParams, type: AlgorithmType = None, log_header = 
 
             xk, rk, yk, sk, tk = ssm.get_second_stage_solution()
             # r = binary wh, y = size wh. r[0][i] fs, r[k][i] for sc k
-            ret.depot_sizes[sc] = yk[sc]
-            # sk[sc][i,j] cust j serverd from wh i
-            ret.customer_depot_assignment[sc] = {i : [j for j in params.app.inst.I if sk[sc][i,j]] for i in params.app.inst.I}
+            ret.depot_sizes[sc] = yk
+            # sk[i,j] cust j serverd from wh i
+            ret.customer_depot_assignment[sc] = {i : [j for j in params.app.inst.J if sk[i,j]] for i in params.app.inst.I}
 
     return s, ret
 

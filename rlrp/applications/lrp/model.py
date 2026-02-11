@@ -4,8 +4,8 @@ from gurobipy import quicksum
 import numpy as np
 import random
 
-from applications.optimization_model import OptimizationModel
-from helper import roundBinaryValue, getValueDict
+from ..optimization_model import OptimizationModel
+from ...helper import roundBinaryValue, getValueDict
 
 from .instance import Instance
 from .. import SecondStageModelType

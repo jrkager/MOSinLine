@@ -1,4 +1,4 @@
-from applications.lrp.instances import toro_instances
+from .instances import toro_instances
 from .. import InstanceStrings
 
 import numpy as np

@@ -8,17 +8,19 @@ import rlrp.classes as rlrp_classes
 from rlrp.algorithm import ourAlgorithm as rlrp_main
 import rlrp.applications.lrp.model as rlrp_model
 import rlrp.applications.lrp.instance as rlrp_instance
+from rlrp.applications.lrp.instance import PenalizedCost
 
-from statistics import mean
-from math import hypot
-
-import json
-
-# Other imports
-import argparse
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Set, Union, Sequence, Mapping, TypeVar, TypedDict, TypeAlias
 from dataclasses import dataclass, field
+
+from statistics import mean
+from math import hypot
+import json
+import argparse
+from contextlib import redirect_stdout
+import os
+
 
 # ------------------
 # Define data structures
@@ -41,8 +43,7 @@ class RLRPResult:
         self.customer_depot_assignment = ret.customer_depot_assignment
 
     def __hash__(self):
-        return hash((frozenset((s, frozenset(d.items())) for s, d in self.depot_sizes.items()),
-                     frozenset((s, frozenset(d.items())) for s, d in self.customer_depot_assignment.items())))
+        return 0 # todo create unique hash
 
 # delivery pattern for a store is a tuple of 6 ints (0 or 1) indicating delivery on each day of the week
 class Pattern(tuple): pass
@@ -85,29 +86,31 @@ class PATTResult:
     # delivery pttern per store
     patterns: Dict[Store, Pattern] = field(default_factory=dict)
     # routes per day
-    routes: Dict[Weekday, Route] = field(default_factory=dict)
+    routes: Dict[Weekday, List[Route]] = field(default_factory=dict)
 
-    def __init__(self, solution: ComprehensiveSolution, instance_data: ALNSInstanceData):
+    def append_solution(self, solution: ComprehensiveSolution, instance_data: ALNSInstanceData):
         # extract patterns and routes from the solution
         sm = instance_data['store_id_mapping']
         for i, pattern_id in solution.pattern_assignments.items():
             self.patterns[sm[i]] = Pattern(solution.evaluator.patterns[pattern_id])
 
         for day, vehicle_routes in solution.routes_by_day.items():
+            if day not in self.routes:
+                self.routes[day] = []
             for vehicle_id, route in vehicle_routes.items():
                 if len(route) > 2:
                     delivery_amounts = [0] * len(route)
                     for i in range(1, len(route)-1):
                         store_id = sm[route[i]]
-                        delivery_amounts[i] = solution.p_frt.get((store_id, solution.pattern_assignment[store_id], day), 0)
+                        delivery_amounts[i] = solution.p_frt.get((store_id, solution.pattern_assignments[route[i]], day), 0)
                     delivery_amounts[0] = sum(delivery_amounts) # total amount at the start of the route at the depot
                     delivery_amounts[-1] = 0 # amount left undelivered at the end of the route is 0, as the vehicle returns empty to the depot in the current implementation
-                    self.routes[day] = Route(
+                    self.routes[day].append(Route(
                         vehicle_id=vehicle_id,
                         stops=route,
                         arc_lengths=[solution.evaluator.delta[route[i], route[i+1]] for i in range(len(route)-1)],
                         delivery_amounts=delivery_amounts
-                    )
+                    ))
 
 
 @dataclass
@@ -119,6 +122,7 @@ class Instance:
     stores: List[Store] # have positive index
     locations: Dict[Node, Tuple[float, float]] # dict of location (node) id to coordinates. depots have negative ids, stores have positive ids
 
+    S: List[int] # list of scenario ids
     demands: Dict[int, Dict[Tuple[Node, ProductClass, Weekday], float]] # dict of scenario to dict of location id, product class, weekday to demand. this is the nominal demand for each scenario. SIM generates its own N relaziations then
 
     # todo this value is not read in alns model yet
@@ -184,43 +188,52 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
     """
     depot_id is negative!
     """
-    filename=f"temp-{instance.name}-{depot_id}-{scenario}-{hash(RLRP_result)}.json"
+    depot_stores = [st for st in instance.stores if st in RLRP_result.customer_depot_assignment[scenario][depot_id]]
+    if len(depot_stores) == 0:
+        return None
+    filename=f"temp-{instance.instance_name}-{depot_id}-{scenario}-{hash(RLRP_result)}.json"
     json_dict = {"instance_name": instance.instance_name,
                  "depot": {"x": instance.locations[depot_id][0], "y": instance.locations[depot_id][1], "demand": 0},
-                 "stores": list(range(1,len(instance.stores)+1)),
-                 "id_map": {str(i+1):st for i, st in enumerate(instance.stores)},
-                 "loc": {str(i+1):{"x":instance.locations[st][0],"y":instance.locations[st][1]} for i, st in enumerate(instance.stores)},
-                 "daily_demands": [mean(instance.aggregate_demands_patt()[scenario][n, w] for w in Weekday) for n in instance.stores]
+                 "stores": list(range(1,len(depot_stores)+1)),
+                 "id_map": {str(i+1):st for i, st in enumerate(depot_stores)},
+                 "loc": {str(i+1):{"x":instance.locations[st][0],"y":instance.locations[st][1]} for i, st in enumerate(depot_stores)},
+                 "daily_demands": [mean(instance.aggregate_demands_patt()[scenario][n, w] for w in Weekday) for n in depot_stores]
                  }
     # add other coefficients from instance
+    mapper = {store_id : i for i, store_id in json_dict["id_map"].items()}
+    mapper[0] = 0
     def reduce_depots(costs_dict):
         ret = {}
-        for (n1, n2), c in instance.distances:
+        for (n1, n2), c in instance.distances.items():
             if n1 < 0 and n1 != depot_id or n2 < 0 and n2 != depot_id:
                 continue
             if n1 == depot_id:
                 n1 = 0
             if n2 == depot_id:
                 n2 = 0
-            ret[(n1,n2)] = c
+            ret[f"({mapper[n1]},{mapper[n2]})"] = c
         return ret
     json_dict["distances"] = reduce_depots(instance.distances)
     json_dict["marginal_co2_emissions"] = instance.marginal_co2_emissions
     json_dict["vehicle_capacity"] = instance.vehicle_capacity
     json_dict["pattern_operational_costs"] = instance.pattern_operational_costs
-    json_dict["foodwaste_emissions"] = instance.foodwaste_emissions
+    json_dict["foodwaste_emissions"] = instance.foodwaste_emissions_factor
     json_dict["weighting_factor_patt"] = instance.weighting_factor_patt
 
     with open(filename, 'w') as f:
-        json.dump(json_dict, f)
+        json.dump(json_dict, f, indent=2)
     return filename
 
-def create_rlrp_instance_data(inst: Instance, gap, timelimit) -> (rlrp_classes.AlgorithmParams, rlrp_instance.Instance):
+def delete_patt_instance_file(patt_instance_file_name):
+    if patt_instance_file_name and os.path.exists(patt_instance_file_name):
+        os.remove(patt_instance_file_name)
+
+def create_rlrp_instance_data(inst: Instance, gap, timelimit, logfile_name=None) -> (rlrp_classes.AlgorithmParams, rlrp_instance.Instance):
     rlrpinstance = rlrp_instance.Instance(I=inst.depots,
                                           J=inst.stores,
                                           beta_k_j=inst.aggregate_demands_rlrp(option = 1),
-                                          f_i=inst.fixed_warehouse_costs,
-                                          d_i=inst.marginal_warehouse_costs,
+                                          f_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.fixed_warehouse_costs.items()},
+                                          d_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.marginal_warehouse_costs.items()},
                                           c_ij={k : v * inst.cost_per_km for k,v in inst.distances.items()},
                                           alpha_ij={k : inst.marginal_co2_emissions * v * inst.vehicle_empty_weight for k,v in inst.distances.items()},
                                           gamma_ij={k : inst.marginal_co2_emissions * v for k,v in inst.distances.items()},
@@ -241,14 +254,13 @@ def create_rlrp_instance_data(inst: Instance, gap, timelimit) -> (rlrp_classes.A
                                           HEURTIMELIMIT=0.1,
                                           total_timelimit=timelimit,
                                           n_threads=0) # use all threads available
+    if logfile_name:
+        params.logfile = open(logfile_name, "w")
     return params
 
 
-if __name__ == "main":
-    parser = argparse.ArgumentParser()
-    parser.parse_args()
-
-
+# if __name__ == "main":
+def construct_test_instance() -> Instance:
     depots: List[Depot] = [-1, -2, -3]
     stores: List[Store] = [12, 77, 49, 9, 1]
 
@@ -268,12 +280,16 @@ if __name__ == "main":
 
     # demands: 3 scenarios ("s3" in name). same nominal demands per scenario.
     # We put all demand on Monday, ProductClass.DEFAULT.
-    demands_per_scenario: Dict[Tuple[Node, ProductClass, Weekday], float] = {(n,p,w) : demand[n] for n in stores for p in ProductClass for w in Weekday}
+    demands_per_scenario: Dict[Tuple[Node, ProductClass, Weekday], float] = {(n, p, w): demand[n] / len(ProductClass)
+                                                                             for n in stores for p in ProductClass for w
+                                                                             in Weekday}
 
     # 3 scenarios
-    demands = {0: dict(demands_per_scenario),
-               1: dict(demands_per_scenario),
-               2: dict(demands_per_scenario)}
+    demands = {1: dict(demands_per_scenario),
+               2: dict(demands_per_scenario),
+               3: dict(demands_per_scenario)}
+
+    S = list(demands.keys())
 
     # distances: euclidean between all nodes, both directions (includes (i,i)=0 too)
     nodes: List[Node] = depots + stores
@@ -299,6 +315,7 @@ if __name__ == "main":
         stores=stores,
         locations=locations,
         demands=demands,
+        S=S,
 
         pattern_operational_costs=pattern_operational_costs,
         foodwaste_emissions_factor=foodwaste_emissions_factor,
@@ -320,16 +337,68 @@ if __name__ == "main":
         number_of_realizations=10,
     )
 
+    return inst
 
+
+
+def main():
+    """
+    Depots have negative ids (when calling ALNS, we cycle through every depot and use 0 as the id)
+    Stores have positive ids.
+    """
+
+    print("+++++++++++++++++++++++++++++++++\n"
+          "+ Constructing test instance... +\n"
+          "+++++++++++++++++++++++++++++++++")
+    inst = construct_test_instance()
+
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
+    logfile_rlrp = "logs/rlrplog"+inst.instance_name+".txt"
+    logfile_patt = "logs/pattlog"+inst.instance_name+".txt"
+
+    print()
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
+          "+    Solving RLRP Instance with Gap 5% and timelimit 1800s   +\n"
+          "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print(f"(Logging to {logfile_rlrp})")
     try:
-        _, ret = rlrp_main(params=create_rlrp_instance_data(inst, gap = 0.05, timelimit = 1800))
+        _, ret = rlrp_main(params=create_rlrp_instance_data(inst, gap = 0.05, timelimit = 1800, logfile_name=logfile_rlrp))
     except rlrp_classes.TimeoutException as e:
         raise TimeoutError(f"RLRP algorithm timed out. Reached gap: {e.reached_gap*100:.2f}%")
-
     rlrp_result = RLRPResult(ret)
 
-    patt_instance_file_name = create_patt_instance_data(inst, rlrp_result, depot_id = -1)
-    alns_solution: ComprehensiveSolution
-    alns_instance_data: ALNSInstanceData
-    alns_solution, alns_instance_data = alns4.main(instance_file_name=patt_instance_file_name)
-    patt_result = PATTResult(alns_solution, alns_instance_data)
+    print()
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
+          "+       Solving PATT (ALNS) for each scneario and depot      +\n"
+          "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print(f"(Logging to {logfile_patt})")
+    patt_result_per_scenario = {}
+    for s in inst.S:
+        print(f"Scenario {s}:")
+        patt_result_per_scenario[s] = PATTResult()
+        for depot_id in inst.depots:
+            print(f"  Depot {depot_id}")
+            patt_instance_file_name = create_patt_instance_data(inst, rlrp_result, depot_id = depot_id, scenario = s)
+            if patt_instance_file_name is None:
+                continue
+            alns_solution: ComprehensiveSolution
+            alns_instance_data: ALNSInstanceData
+            with open(logfile_rlrp, 'w') as f:
+                with redirect_stdout(f):
+                    alns_solution, alns_instance_data = alns4.main(instance_file_name=patt_instance_file_name)
+            patt_result_per_scenario[s].append_solution(alns_solution, alns_instance_data)
+            delete_patt_instance_file(patt_instance_file_name)
+
+        # todo remove this line
+        break # only run for the first scenario for now
+
+    print("Patt Result:")
+    for s in inst.S:
+        if s in patt_result_per_scenario:
+            print(f"Scenario {s}:")
+            print(f"{len(patt_result_per_scenario[s].patterns)} patterns, "
+                  f"{sum(len(r) for r in patt_result_per_scenario[s].routes.values())} routes")
+
+
+main()

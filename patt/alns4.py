@@ -10,9 +10,11 @@ import pandas as pd
 from copy import deepcopy
 import sys
 from collections import defaultdict
+
+from asttokens.util import is_joined_str
 from sklearn.cluster import KMeans
 
-print("Implements full ALNS approach: Pattern optimization (Stage 1) + Routing optimization (Stage 2)")
+# print("Implements full ALNS approach: Pattern optimization (Stage 1) + Routing optimization (Stage 2)")
 
 class ComprehensiveSolution:
     
@@ -1225,7 +1227,7 @@ class ComprehensiveALNS:
         except Exception:
             pass
 
-        self.delta = {(self.store_id_mapping[i], self.store_id_mapping[j]) : c for (i,j), c in instance_data["transportation_costs"].items()}
+        self.delta = {tuple(map(int, ij_string.strip("() ").split(","))) : c for ij_string, c in instance_data["distances"].items()}
         self._calculate_parameters(instance_data)
         self.evaluator = CombinedEvaluator(
             self.loc, self.delta, self.c_fr, self.waste_fractions, self.D_f, 
