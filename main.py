@@ -21,6 +21,7 @@ import argparse
 from contextlib import redirect_stdout
 import os
 
+from copy import deepcopy
 
 # ------------------
 # Define data structures
@@ -81,7 +82,8 @@ class ProductClass(Enum):
 @dataclass
 class PATTResult:
     """
-    one PATTResult object per scenario?
+    one PATTResult object per scenario.
+    todo: implement an option to check infeasibility. How does alns report that?
     """
     # delivery pttern per store
     patterns: Dict[Store, Pattern] = field(default_factory=dict)
@@ -112,6 +114,19 @@ class PATTResult:
                         delivery_amounts=delivery_amounts
                     ))
 
+    def check_infeasible(self):
+        """
+        return true if this PATTResult is infeasible
+        """
+        pass
+
+class SIMResult:
+    """
+    holds all data that is generated in the simulation and needed for the evaluation of the solution.
+    based on this result, we decide if the solutuion was good enough.
+    """
+    def is_good_enough(self):
+        pass
 
 @dataclass
 class Instance:
@@ -183,6 +198,35 @@ class Instance:
                 ret[s] = {n: sorted((agg_patt[s][n, w] for w in weekdays), reverse=True)[n_th] for n in nodes}
         return ret
 
+def create_rlrp_instance_data(inst: Instance, gap, timelimit, logfile_name=None) -> (rlrp_classes.AlgorithmParams, rlrp_instance.Instance):
+    rlrpinstance = rlrp_instance.Instance(I=inst.depots,
+                                          J=inst.stores,
+                                          beta_k_j=inst.aggregate_demands_rlrp(option = 1),
+                                          f_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.fixed_warehouse_costs.items()},
+                                          d_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.marginal_warehouse_costs.items()},
+                                          c_ij={k : v * inst.cost_per_km for k,v in inst.distances.items()},
+                                          alpha_ij={k : inst.marginal_co2_emissions * v * inst.vehicle_empty_weight for k,v in inst.distances.items()},
+                                          gamma_ij={k : inst.marginal_co2_emissions * v for k,v in inst.distances.items()},
+                                          F=0,
+                                          C_i=inst.max_warehouse_size,
+                                          Q=inst.vehicle_capacity,
+                                          loc=inst.locations, # in the createInstance method loc is created as numpy array, not possible here because of nefgative indizes for the depots
+                                          name=inst.instance_name,
+                                          sample_number=None,
+                                          scenarios=list(inst.demands.keys()),
+                                          weighting_factor_rlrp=inst.weighting_factor_rlrp)
+    appl = rlrp_classes.Application(inst = rlrpinstance, MasterModel=rlrp_model.MasterModel, SecondStageModel=rlrp_model.SecondStageModel)
+    start_sc = rlrp_model.initSubsetEmpty(inst)
+    params = rlrp_classes.AlgorithmParams(app=appl,
+                                          start_sc=start_sc,
+                                          desired_gap=gap,
+                                          MASTER_P=gap * 0.5, # use mu = 0.5
+                                          HEURTIMELIMIT=0.1,
+                                          total_timelimit=timelimit,
+                                          n_threads=0) # use all threads available
+    if logfile_name:
+        params.logfile = open(logfile_name, "w")
+    return params
 
 def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot_id: Node, scenario: int) -> str:
     """
@@ -227,37 +271,6 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
 def delete_patt_instance_file(patt_instance_file_name):
     if patt_instance_file_name and os.path.exists(patt_instance_file_name):
         os.remove(patt_instance_file_name)
-
-def create_rlrp_instance_data(inst: Instance, gap, timelimit, logfile_name=None) -> (rlrp_classes.AlgorithmParams, rlrp_instance.Instance):
-    rlrpinstance = rlrp_instance.Instance(I=inst.depots,
-                                          J=inst.stores,
-                                          beta_k_j=inst.aggregate_demands_rlrp(option = 1),
-                                          f_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.fixed_warehouse_costs.items()},
-                                          d_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.marginal_warehouse_costs.items()},
-                                          c_ij={k : v * inst.cost_per_km for k,v in inst.distances.items()},
-                                          alpha_ij={k : inst.marginal_co2_emissions * v * inst.vehicle_empty_weight for k,v in inst.distances.items()},
-                                          gamma_ij={k : inst.marginal_co2_emissions * v for k,v in inst.distances.items()},
-                                          F=0,
-                                          C_i=inst.max_warehouse_size,
-                                          Q=inst.vehicle_capacity,
-                                          loc=inst.locations, # in the createInstance method loc is created as numpy array, not possible here because of nefgative indizes for the depots
-                                          name=inst.instance_name,
-                                          sample_number=None,
-                                          scenarios=list(inst.demands.keys()),
-                                          weighting_factor_rlrp=inst.weighting_factor_rlrp)
-    appl = rlrp_classes.Application(inst = rlrpinstance, MasterModel=rlrp_model.MasterModel, SecondStageModel=rlrp_model.SecondStageModel)
-    start_sc = rlrp_model.initSubsetEmpty(inst)
-    params = rlrp_classes.AlgorithmParams(app=appl,
-                                          start_sc=start_sc,
-                                          desired_gap=gap,
-                                          MASTER_P=gap * 0.5, # use mu = 0.5
-                                          HEURTIMELIMIT=0.1,
-                                          total_timelimit=timelimit,
-                                          n_threads=0) # use all threads available
-    if logfile_name:
-        params.logfile = open(logfile_name, "w")
-    return params
-
 
 # if __name__ == "main":
 def construct_test_instance() -> Instance:
@@ -339,6 +352,76 @@ def construct_test_instance() -> Instance:
 
     return inst
 
+def solve_rlrp(inst: Instance, logfile_rlrp: str) -> RLRPResult:
+    print()
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
+          "+    Solving RLRP Instance with Gap 5% and timelimit 1800s   +\n"
+          "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print(f"(Logging to {logfile_rlrp})")
+    try:
+        _, ret = rlrp_main(params=create_rlrp_instance_data(inst, gap=0.05, timelimit=1800, logfile_name=logfile_rlrp))
+    except rlrp_classes.TimeoutException as e:
+        raise TimeoutError(f"RLRP algorithm timed out. Reached gap: {e.reached_gap * 100:.2f}%")
+    except Exception as e:
+        print("Error in RLRP")
+        raise e
+    rlrp_result = RLRPResult(ret)
+    return rlrp_result
+
+def solve_patt(inst: Instance, logfile_patt: str, logfile_rlrp: str, rlrp_result: RLRPResult) -> Dict[int, PATTResult]:
+    print()
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
+          "+       Solving PATT (ALNS) for each scenario and depot      +\n"
+          "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print(f"(Logging to {logfile_patt})")
+    patt_result_per_scenario = {}
+    for s in inst.S:
+        print(f"Scenario {s}:")
+        patt_result_per_scenario[s] = PATTResult()
+        for depot_id in inst.depots:
+            print(f"  Depot {depot_id}")
+            patt_instance_file_name = create_patt_instance_data(inst, rlrp_result, depot_id=depot_id, scenario=s)
+            if patt_instance_file_name is None:
+                continue
+            alns_solution: ComprehensiveSolution
+            alns_instance_data: ALNSInstanceData
+            with open(logfile_rlrp, 'w') as f:
+                with redirect_stdout(f):
+                    alns_solution, alns_instance_data = alns4.main(instance_file_name=patt_instance_file_name)
+            patt_result_per_scenario[s].append_solution(alns_solution, alns_instance_data)
+            delete_patt_instance_file(patt_instance_file_name)
+
+    print("Patt Result:")
+    for s in inst.S:
+        if s in patt_result_per_scenario:
+            print(f"Scenario {s}:")
+            print(f"{len(patt_result_per_scenario[s].patterns)} patterns, "
+                  f"{sum(len(r) for r in patt_result_per_scenario[s].routes.values())} routes")
+    return patt_result_per_scenario
+
+def solve_sim(inst: Instance, patt_result_per_scenario: Dict[int, PATTResult], logfile_sim: str) -> SIMResult:
+    print()
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
+          "+                        Solving SIM                         +\n"
+          "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print(f"(Logging to {logfile_sim})")
+    # using the PATT result to run simulation
+    # ...
+    # filling SIMResult object with data
+    sim_result = SIMResult()
+    # ...
+    return sim_result
+
+def modify_instance_after_patt_infeasible(inst:Instance, rlrp_result: RLRPResult, patt_result_per_scenario, patt_failures):
+    # find out in which scneario and which depot PATT failed. (todo)
+    # possibly also distinguished per product class and per weekday
+    failed_depots_per_scenario = ...
+    for sc, failed_depots in failed_depots_per_scenario.items():
+        for key in inst.demands[sc]:
+            inst.demands[sc][key] *= 1.1 # increase demand by 10%
+
+def modify_weights_after_sim_infeasible(patt_instance, patt_result_per_scenario, sim_result, sim_failures):
+    patt_instance.weighting_factor_patt *= 0.9 # modify the weighting. Todo: this has to be changed (increased or decreased) depending on the result of the SIM!
 
 
 def main():
@@ -350,55 +433,64 @@ def main():
     print("+++++++++++++++++++++++++++++++++\n"
           "+ Constructing test instance... +\n"
           "+++++++++++++++++++++++++++++++++")
-    inst = construct_test_instance()
+    original_inst = construct_test_instance()
 
     if not os.path.exists("logs"):
         os.makedirs("logs")
-    logfile_rlrp = "logs/rlrplog"+inst.instance_name+".txt"
-    logfile_patt = "logs/pattlog"+inst.instance_name+".txt"
+    logfile_rlrp = "logs/rlrplog"+original_inst.instance_name+".txt"
+    logfile_patt = "logs/pattlog"+original_inst.instance_name+".txt"
+    logfile_sim = "logs/simlog" + original_inst.instance_name + ".txt"
 
-    print()
-    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
-          "+    Solving RLRP Instance with Gap 5% and timelimit 1800s   +\n"
-          "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    print(f"(Logging to {logfile_rlrp})")
-    try:
-        _, ret = rlrp_main(params=create_rlrp_instance_data(inst, gap = 0.05, timelimit = 1800, logfile_name=logfile_rlrp))
-    except rlrp_classes.TimeoutException as e:
-        raise TimeoutError(f"RLRP algorithm timed out. Reached gap: {e.reached_gap*100:.2f}%")
-    rlrp_result = RLRPResult(ret)
+    max_patt_failures = 3
+    max_sim_failures = 3
+    patt_failures = 0
 
-    print()
-    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
-          "+       Solving PATT (ALNS) for each scneario and depot      +\n"
-          "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    print(f"(Logging to {logfile_patt})")
-    patt_result_per_scenario = {}
-    for s in inst.S:
-        print(f"Scenario {s}:")
-        patt_result_per_scenario[s] = PATTResult()
-        for depot_id in inst.depots:
-            print(f"  Depot {depot_id}")
-            patt_instance_file_name = create_patt_instance_data(inst, rlrp_result, depot_id = depot_id, scenario = s)
-            if patt_instance_file_name is None:
-                continue
-            alns_solution: ComprehensiveSolution
-            alns_instance_data: ALNSInstanceData
-            with open(logfile_rlrp, 'w') as f:
-                with redirect_stdout(f):
-                    alns_solution, alns_instance_data = alns4.main(instance_file_name=patt_instance_file_name)
-            patt_result_per_scenario[s].append_solution(alns_solution, alns_instance_data)
-            delete_patt_instance_file(patt_instance_file_name)
+    rlrp_instance = deepcopy(original_inst)
+    patt_instance = deepcopy(original_inst)
 
-        # todo remove this line
-        break # only run for the first scenario for now
+    while patt_failures < max_patt_failures:
+        rlrp_result = solve_rlrp(rlrp_instance, logfile_rlrp)
 
-    print("Patt Result:")
-    for s in inst.S:
-        if s in patt_result_per_scenario:
-            print(f"Scenario {s}:")
-            print(f"{len(patt_result_per_scenario[s].patterns)} patterns, "
-                  f"{sum(len(r) for r in patt_result_per_scenario[s].routes.values())} routes")
+        sim_failures = 0
+
+        while sim_failures < max_sim_failures:
+            patt_result_per_scenario = solve_patt(patt_instance, logfile_patt, logfile_rlrp, rlrp_result)
+
+            if any(pr.check_infeasible() for pr in patt_result_per_scenario.values()):
+                patt_failures += 1
+                if patt_failures >= max_patt_failures:
+                    return {
+                        "status": "infeasible",
+                        "reason": f"PATT infeasible {patt_failures} times"
+                    }
+
+                modify_instance_after_patt_infeasible(rlrp_instance, rlrp_result, patt_result_per_scenario, patt_failures)
+                break  # go back to outer loop: rerun RLRP
+
+            sim_result = solve_sim(original_inst, patt_result_per_scenario, logfile_sim)
+
+            if sim_result.is_good_enough():
+                return {
+                    "status": "ok",
+                    "rlrp_result": rlrp_result,
+                    "patt_result": patt_result_per_scenario,
+                    "sim_result": sim_result,
+                }
+
+            sim_failures += 1
+            if sim_failures >= max_sim_failures:
+                return {
+                    "status": "infeasible",
+                    "reason": f"SIM not good {sim_failures} times"
+                }
+
+            modify_weights_after_sim_infeasible(patt_instance, patt_result_per_scenario, sim_result, sim_failures)
+            # continue inner loop: rerun PATT only
+
+    return {
+        "status": "infeasible",
+        "reason": "Maximum number of PATT failures reached"
+    }
 
 
 main()
