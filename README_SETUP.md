@@ -1,8 +1,5 @@
 # MOSinLine full-chain setup: RLRP → segment PATT → AnyLogic SIM
 
-This guide takes you from an empty VS Code project to running the complete
-pipeline on your own machine, with each handoff verified.
-
 Chain and interfaces:
 
     [1] RLRP (Johannes, Gurobi)      decides: open depots, sizes, store→depot assignment
@@ -12,7 +9,7 @@ Chain and interfaces:
             distances, Q/W0/c_km/fuel/eta, marginal_co2 (→ theta_TR), lambda,
             demand_by_segment (store × {dry,fresh,frozen} × weekday)
             ▼
-    [2] PATT (your segment ALNS)     decides: pattern per store, p_frt, routes
+    [2] PATT (Kailin, Metaheuristic)     decides: pattern per store, p_frt, routes
             │  main() returns (ComprehensiveSolution, instance_data)
             │  PATTResult.append_solution() collects patterns + routes + delivery_amounts
             ▼
@@ -24,17 +21,6 @@ Chain and interfaces:
             executes the plan for 54 weeks under Variants 1–8
 
 ---
-
-## 0. Prerequisites
-
-- Python 3.10+ (`python --version`)
-- VS Code + Python extension
-- Git
-- Gurobi with a license. TUM academic license: register at gurobi.com with your
-  @tum.de mail, get a key, run `grbgetkey <key>` once. (The pip-installed
-  `gurobipy` also ships a size-limited trial license that is enough for the
-  5-store test instance, so you can start before sorting the license.)
-- AnyLogic (PLE or University) — only for step 7.
 
 ## 1. Project setup in VS Code
 
