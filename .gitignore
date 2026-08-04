@@ -17,3 +17,9 @@ results/
 
 # OS
 .DS_Store
+
+__pycache__/
+.venv/
+logs/
+*.csv
+!solomon_data/*.txt

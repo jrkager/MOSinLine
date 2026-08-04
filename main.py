@@ -31,6 +31,34 @@ Depot: TypeAlias = int
 Node: TypeAlias = int
 
 
+# ============================================================
+# ALIGNED TRANSPORT PARAMETERS — single source of truth (PATT values)
+# ============================================================
+TRANSPORT_PARAMS = {
+    "c_km": 1.12, "c_fuel": 1.80, "eta": 0.05, "theta_TR": 2.7,
+    "W0": 14.4, "Q": 25.6, "lam": 0.3,
+}
+
+def derived_transport_coefficients(p=TRANSPORT_PARAMS):
+    lam = p["lam"]
+    return {
+        "c_coef":     (1 - lam) * p["c_km"],
+        "alpha_coef": (1 - lam) * p["c_fuel"] * p["eta"] * p["W0"] + lam * p["eta"] * p["theta_TR"] * p["W0"],
+        "gamma_coef": (1 - lam) * p["c_fuel"] * p["eta"]           + lam * p["eta"] * p["theta_TR"],
+        "marginal_co2_emissions": p["eta"] * p["theta_TR"],
+    }
+
+def _export_demand_by_segment(instance, scenario, depot_stores):
+    """Per-store, per-segment weekday demand for the PATT instance JSON."""
+    return {
+        str(i + 1): {
+            pc.name.lower(): [float(instance.demands[scenario].get((st, pc, w), 0.0)) for w in Weekday]
+            for pc in ProductClass
+        }
+        for i, st in enumerate(depot_stores)
+    }
+
+
 @dataclass
 class RLRPResult:
     # dict of scenario to dict of depot_id to size of warehouse opened at this depot_id. id a warehouse is not opened, it will not appear in the dict or its size will be 0.
@@ -103,8 +131,8 @@ class PATTResult:
                 if len(route) > 2:
                     delivery_amounts = [0] * len(route)
                     for i in range(1, len(route)-1):
-                        store_id = sm[route[i]]
-                        delivery_amounts[i] = solution.p_frt.get((store_id, solution.pattern_assignments[route[i]], day), 0)
+                        internal_id = route[i]   # p_frt keys are INTERNAL renumbered ids
+                        delivery_amounts[i] = solution.p_frt.get((internal_id, solution.pattern_assignments[internal_id], day), 0)
                     delivery_amounts[0] = sum(delivery_amounts) # total amount at the start of the route at the depot
                     delivery_amounts[-1] = 0 # amount left undelivered at the end of the route is 0, as the vehicle returns empty to the depot in the current implementation
                     self.routes[day].append(Route(
@@ -198,15 +226,15 @@ class Instance:
                 ret[s] = {n: sorted((agg_patt[s][n, w] for w in weekdays), reverse=True)[n_th] for n in nodes}
         return ret
 
-def create_rlrp_instance_data(inst: Instance, gap, timelimit, logfile_name=None) -> (rlrp_classes.AlgorithmParams, rlrp_instance.Instance):
+def create_rlrp_instance_data(inst: Instance, gap, timelimit, logfile_name=None) -> Tuple[rlrp_classes.AlgorithmParams, rlrp_instance.Instance]:
     rlrpinstance = rlrp_instance.Instance(I=inst.depots,
                                           J=inst.stores,
                                           beta_k_j=inst.aggregate_demands_rlrp(option = 1),
                                           f_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.fixed_warehouse_costs.items()},
                                           d_i={k : PenalizedCost(v, inst.second_stage_penalty_factor * v) for k,v in inst.marginal_warehouse_costs.items()},
-                                          c_ij={k : v * inst.cost_per_km for k,v in inst.distances.items()},
-                                          alpha_ij={k : inst.marginal_co2_emissions * v * inst.vehicle_empty_weight for k,v in inst.distances.items()},
-                                          gamma_ij={k : inst.marginal_co2_emissions * v for k,v in inst.distances.items()},
+                                          c_ij={k : derived_transport_coefficients()["c_coef"] * v for k,v in inst.distances.items()},
+                                          alpha_ij={k : derived_transport_coefficients()["alpha_coef"] * v for k,v in inst.distances.items()},
+                                          gamma_ij={k : derived_transport_coefficients()["gamma_coef"] * v for k,v in inst.distances.items()},
                                           F=0,
                                           C_i=inst.max_warehouse_size,
                                           Q=inst.vehicle_capacity,
@@ -255,14 +283,19 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
                 n1 = 0
             if n2 == depot_id:
                 n2 = 0
+            if n1 not in mapper or n2 not in mapper: continue
             ret[f"({mapper[n1]},{mapper[n2]})"] = c
         return ret
     json_dict["distances"] = reduce_depots(instance.distances)
-    json_dict["marginal_co2_emissions"] = instance.marginal_co2_emissions
     json_dict["vehicle_capacity"] = instance.vehicle_capacity
-    json_dict["pattern_operational_costs"] = instance.pattern_operational_costs
-    json_dict["foodwaste_emissions"] = instance.foodwaste_emissions_factor
+    json_dict["vehicle_empty_weight"] = instance.vehicle_empty_weight
+    json_dict["cost_per_km"] = TRANSPORT_PARAMS["c_km"]      # UNWEIGHTED — PATT applies lambda itself
+    json_dict["fuel_price"] = TRANSPORT_PARAMS["c_fuel"]
+    json_dict["eta"] = TRANSPORT_PARAMS["eta"]
+    json_dict["marginal_co2_emissions"] = instance.marginal_co2_emissions
     json_dict["weighting_factor_patt"] = instance.weighting_factor_patt
+    json_dict["Q_day_max"] = RLRP_result.depot_sizes[scenario].get(depot_id, 99999)
+    json_dict["demand_by_segment"] = _export_demand_by_segment(instance, scenario, depot_stores)
 
     with open(filename, 'w') as f:
         json.dump(json_dict, f, indent=2)
@@ -289,18 +322,11 @@ def construct_test_instance() -> Instance:
     locations[9] = (55.0, 60.0)
     locations[1] = (41.0, 49.)
 
-    demand = {12: 19, 77: 14, 49: 30, 9: 16, 1: 10}
-
-    # demands: 3 scenarios ("s3" in name). same nominal demands per scenario.
-    # We put all demand on Monday, ProductClass.DEFAULT.
-    demands_per_scenario: Dict[Tuple[Node, ProductClass, Weekday], float] = {(n, p, w): demand[n] / len(ProductClass)
-                                                                             for n in stores for p in ProductClass for w
-                                                                             in Weekday}
-
-    # 3 scenarios
-    demands = {1: dict(demands_per_scenario),
-               2: dict(demands_per_scenario),
-               3: dict(demands_per_scenario)}
+    # Structural demand scenarios (base / growth / fresh_shift), calibrated to Q=25.6
+    from scenario_gen import generate_scenarios, check_scenarios_against_vehicle
+    demands, scenario_names, base_profile = generate_scenarios(stores, ProductClass, Weekday, seed=42)
+    check_scenarios_against_vehicle(demands, scenario_names, stores, ProductClass, Weekday,
+                                    Q=TRANSPORT_PARAMS["Q"])
 
     S = list(demands.keys())
 
@@ -317,9 +343,10 @@ def construct_test_instance() -> Instance:
     foodwaste_emissions_factor = None
 
     # warehouse cost params (choose simple, consistent values)
-    fixed_warehouse_costs = {d: 200_000.0 for d in depots}
-    marginal_warehouse_costs = {d: 50.0 for d in depots}
-    max_warehouse_size = {d: 500.0 for d in depots}
+    _oml = 1.0 - TRANSPORT_PARAMS["lam"]   # warehouse costs are economic -> pre-scale by (1-lambda)
+    fixed_warehouse_costs = {d: _oml * 8_000.0 for d in depots}     # weekly-equivalent fixed cost
+    marginal_warehouse_costs = {d: _oml * 50.0 for d in depots}
+    max_warehouse_size = {-1: 30.0, -2: 30.0, -3: 30.0}
 
     # fill remaining scalars (use your provided ones + sensible defaults)
     inst = Instance(
@@ -334,17 +361,17 @@ def construct_test_instance() -> Instance:
         foodwaste_emissions_factor=foodwaste_emissions_factor,
 
         distances=distances,
-        cost_per_km=2.0,
-        vehicle_capacity=44,
-        vehicle_empty_weight=8,
-        marginal_co2_emissions=0.05 * 1 * 2.7,
+        cost_per_km=TRANSPORT_PARAMS["c_km"],
+        vehicle_capacity=TRANSPORT_PARAMS["Q"],
+        vehicle_empty_weight=TRANSPORT_PARAMS["W0"],
+        marginal_co2_emissions=derived_transport_coefficients()["marginal_co2_emissions"],
 
         fixed_warehouse_costs=fixed_warehouse_costs,
         marginal_warehouse_costs=marginal_warehouse_costs,
         max_warehouse_size=max_warehouse_size,
         second_stage_penalty_factor=1.5,
 
-        weighting_factor_patt=0.3,
+        weighting_factor_patt=TRANSPORT_PARAMS["lam"],
         weighting_factor_rlrp=0.5,
 
         number_of_realizations=10,
@@ -493,4 +520,5 @@ def main():
     }
 
 
-main()
+if __name__ == "__main__":
+    main()
