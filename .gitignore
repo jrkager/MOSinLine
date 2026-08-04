@@ -26,3 +26,8 @@ logs/
 
 # web tool run artifacts
 exports/
+
+# web app
+web-app/node_modules/
+web-app/.svelte-kit/
+web-app/build/
