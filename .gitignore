@@ -23,3 +23,6 @@ __pycache__/
 logs/
 *.csv
 !solomon_data/*.txt
+
+# web tool run artifacts
+exports/

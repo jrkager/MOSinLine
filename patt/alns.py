@@ -1769,7 +1769,12 @@ class ComprehensiveALNS:
                 return False, f"DC load out of bounds on day {day}"
         return True, "Feasible"
 
-    def run_alns(self, max_iterations=1000, time_limit=None, target_cost=None):
+    def run_alns(self, max_iterations=1000, time_limit=None, target_cost=None,
+                 progress_cb=None, stop_cb=None):
+        """progress_cb(iteration, best_cost, elapsed_sec) is called on every new
+        best; stop_cb() -> True aborts the search at an iteration boundary.
+        Both are used by the web tool to drive the live view and the stop
+        button; they default to None so standalone behaviour is unchanged."""
         print("\nRunning Comprehensive ALNS optimization...")
         alns_start_time = time.time()
         best_found_time = 0.0
@@ -1799,6 +1804,9 @@ class ComprehensiveALNS:
                 if elapsed > time_limit:
                     print(f"\n\u23f0 Time limit of {time_limit/3600:.2f} hours reached at iteration {iteration}.")
                     break
+            if stop_cb is not None and stop_cb():
+                print(f"\n\u23f9 Stop requested at iteration {iteration}.")
+                break
             old_current_cost = current_solution.cost
             best_cost = best_solution.cost
             new_solution = None
@@ -1860,6 +1868,8 @@ class ComprehensiveALNS:
                 iterations_without_improvement = 0
                 best_found_time = time.time() - alns_start_time
                 print(f"Iteration {iteration}: New best = {best_solution.cost:.2f} (at {best_found_time:.1f}s)")
+                if progress_cb is not None:
+                    progress_cb(iteration, best_solution.cost, best_found_time)
                 if target_cost is not None and time_to_match_target is None and best_solution.cost <= target_cost + 1e-6:
                     time_to_match_target = time.time() - alns_start_time
                     print(f"  \u2705 Matched/beat target {target_cost:.2f} at {time_to_match_target:.1f}s")
