@@ -226,7 +226,7 @@ class Instance:
                 ret[s] = {n: sorted((agg_patt[s][n, w] for w in weekdays), reverse=True)[n_th] for n in nodes}
         return ret
 
-def create_rlrp_instance_data(inst: Instance, gap, timelimit, logfile_name=None) -> (rlrp_classes.AlgorithmParams, rlrp_instance.Instance):
+def create_rlrp_instance_data(inst: Instance, gap, timelimit, logfile_name=None) -> Tuple[rlrp_classes.AlgorithmParams, rlrp_instance.Instance]:
     rlrpinstance = rlrp_instance.Instance(I=inst.depots,
                                           J=inst.stores,
                                           beta_k_j=inst.aggregate_demands_rlrp(option = 1),
@@ -283,6 +283,7 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
                 n1 = 0
             if n2 == depot_id:
                 n2 = 0
+            if n1 not in mapper or n2 not in mapper: continue
             ret[f"({mapper[n1]},{mapper[n2]})"] = c
         return ret
     json_dict["distances"] = reduce_depots(instance.distances)
@@ -293,6 +294,7 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
     json_dict["eta"] = TRANSPORT_PARAMS["eta"]
     json_dict["marginal_co2_emissions"] = instance.marginal_co2_emissions
     json_dict["weighting_factor_patt"] = instance.weighting_factor_patt
+    json_dict["Q_day_max"] = RLRP_result.depot_sizes[scenario].get(depot_id, 99999)
     json_dict["demand_by_segment"] = _export_demand_by_segment(instance, scenario, depot_stores)
 
     with open(filename, 'w') as f:
@@ -344,7 +346,7 @@ def construct_test_instance() -> Instance:
     _oml = 1.0 - TRANSPORT_PARAMS["lam"]   # warehouse costs are economic -> pre-scale by (1-lambda)
     fixed_warehouse_costs = {d: _oml * 8_000.0 for d in depots}     # weekly-equivalent fixed cost
     marginal_warehouse_costs = {d: _oml * 50.0 for d in depots}
-    max_warehouse_size = {d: 500.0 for d in depots}
+    max_warehouse_size = {-1: 30.0, -2: 30.0, -3: 30.0}
 
     # fill remaining scalars (use your provided ones + sensible defaults)
     inst = Instance(

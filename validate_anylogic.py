@@ -49,6 +49,6 @@ def run(folder, suffix, start_date="2025-03-03", warmup_days=14, weeks=52.0):
     print(f"(waste A/B/C: {wA}/{wB}/{wC}; lost total {lost})")
 
 if __name__ == "__main__":
-    folder = sys.argv[1] if len(sys.argv) > 1 else "D:/PhD/mosinline_anylogic"
+    folder = sys.argv[1] if len(sys.argv) > 1 else "D:/mosinline_anylogic_r101"
     suffix = sys.argv[2] if len(sys.argv) > 2 else "_s1_variant2"
     run(folder, suffix)

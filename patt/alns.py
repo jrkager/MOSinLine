@@ -1804,6 +1804,16 @@ class ComprehensiveALNS:
             new_solution = None
             op_idx = -1
             stage1_feasible = False
+            best_cand = None
+            best_cand_over = None
+            best_cand_meta = None
+            def _dc_overload(sol_):
+                tot = 0.0
+                for _day in range(6):
+                    _load = sum(self.p_frt.get((s_, sol_.pattern_assignments[s_], _day), 0) for s_ in self.stores)
+                    if _load > self.Q_day_max:
+                        tot += _load - self.Q_day_max
+                return tot
             for retry in range(self.max_stage1_retries):
                 temp_solution, temp_op_idx, touched_days, is_joint_op = self._stage1_alns(current_solution, iteration)
                 temp_sig = self._get_solution_signature(temp_solution)
@@ -1814,8 +1824,24 @@ class ComprehensiveALNS:
                     op_idx = temp_op_idx
                     stage1_feasible = True
                     break
+                _over = _dc_overload(temp_solution)
+                if best_cand is None or _over < best_cand_over:
+                    best_cand = temp_solution
+                    best_cand_over = _over
+                    best_cand_meta = (temp_op_idx, touched_days, is_joint_op)
+            cand_feasible = stage1_feasible
             if not stage1_feasible:
-                continue
+                cur_over = _dc_overload(current_solution)
+                if best_cand is not None:
+                    new_solution = best_cand
+                    op_idx, touched_days, is_joint_op = best_cand_meta
+                    stage1_feasible = True
+                    if iteration % 50 == 0:
+                        print(f"Iteration {iteration}: repair mode, DC overload {cur_over:.2f} -> {best_cand_over:.2f}")
+                else:
+                    if iteration % 50 == 0:
+                        print(f"Iteration {iteration}: no feasible candidate ({reason})")
+                    continue
             solution_sig = self._get_solution_signature(new_solution)
             if solution_sig in self.solution_cache:
                 cached_cost, cached_routes = self.solution_cache[solution_sig]
@@ -1827,7 +1853,7 @@ class ComprehensiveALNS:
                 self.solution_cache[solution_sig] = (new_solution.cost, deepcopy(new_solution.routes_by_day))
             accept_status = "rejected"
             new_cost = new_solution.cost
-            if new_cost < best_cost - 1e-6:
+            if new_cost < best_cost - 1e-6 and cand_feasible:
                 accept_status = "new_best"
                 best_solution = new_solution.copy()
                 current_solution = new_solution
