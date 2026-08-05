@@ -83,10 +83,13 @@ This is the fastest way to see the data flow; start here.
 python run_full_pipeline_sim.py
 ```
 RLRP → PATT → Python DES port on `R101_10stores_i1`, comparing PATT's predicted
-KPIs against simulated Variants 2/1/3/4. ~58 s. **This is the integration
-regression test**: the "Variant 2" row must land within ~0.1 pp / a few percent
-of the "PATT model" row (last observed: waste 6.13 % vs 6.08 %, stockout 4.90 %
-vs 5.00 %). A large gap means a handoff broke.
+KPIs against simulated Variants 2/1/3/4. ~2 min. **This is the integration
+regression test**: the "Variant 2" row must track the "PATT model" row closely.
+Last observed (after the integer-ordering fix in `3cc93a6`), waste PATT vs V2 per
+scenario: 9.26 / 9.32, 7.03 / 6.86, 5.29 / 5.27 %; stockout 6.85 / 7.09,
+5.14 / 5.00, 5.28 / 5.55 %. A gap of more than a few tenths of a pp means a
+handoff broke. Note these absolute levels moved when the ordering fix landed —
+compare agreement, not the levels, against older notes.
 
 ```bash
 python run_pipeline_B.py
@@ -201,6 +204,12 @@ and don't be surprised by them.
   and unused; the current PATT computes both endogenously.
 - Some comments/prints are in Chinese (`check_rlrp.py`, `run_pipeline_B.py`) — the
   project has multiple authors.
+- **The ALNS builds its own (R,S) shelf simulation at construction time**
+  (`ComprehensiveALNS.__init__`, `N_RUNS = 10` × 52 weeks × stores × patterns ×
+  segments). That is where most of the PATT setup time goes, before a single
+  ALNS iteration runs. Delivered and order quantities are rounded to integer
+  units there so the prediction matches the DES port — do not "clean up" that
+  rounding, it is what keeps PATT and Variant 2 in agreement.
 
 ## Working style for this repo
 
