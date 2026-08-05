@@ -256,6 +256,10 @@
 					<input type="number" step="0.05" bind:value={params.feedback.lambda_factor} />
 				</label>
 				<label class="field">
+					Capacity check margin
+					<input type="number" step="0.05" bind:value={params.feedback.check_margin} />
+				</label>
+				<label class="field">
 					Capacity safety
 					<input type="number" step="0.05" bind:value={params.feedback.safety} />
 				</label>

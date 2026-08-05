@@ -106,6 +106,7 @@ lat/lon.
 | **RLRP** | Which depots opened at what size per scenario, the store→depot assignment on the map, solve statistics. |
 | **PATT** | The delivery-pattern calendar (stores × Mon–Sat, shaded by tonnage), routes per weekday, predicted KPIs, ALNS convergence, operator performance. |
 | **SIM** | The predicted-vs-simulated KPI table (the headline validation result), the acceptance verdict, and the variant comparison. |
+| **How it works** | Standalone documentation page: an annotated protocol diagram (what each module consumes and produces, and the named transform between them) plus prose on why the RLRP and PATT disagree about demand, the capacity pre-check, the conventions, and the objective alignment. |
 
 ## Output on disk
 
@@ -129,11 +130,16 @@ exports/runs/<run-id>/
 | Mode | Behaviour |
 |---|---|
 | `single` | one pass, no feedback — fastest |
-| `capacity` | PATT → RLRP only: when a depot cannot carry PATT's minimum throughput, RLRP demand is scaled up (capped per round) and RLRP re-solves |
+| `capacity` | PATT → RLRP only: when a depot cannot carry PATT's minimum throughput, RLRP demand is scaled up (capped per round) and RLRP re-solves. The simulation still runs and reports, but does not steer. |
 | `full` | the above plus SIM → PATT: when simulated KPIs miss PATT's prediction, λ is lowered and PATT re-solves |
 
 The capacity edge is the one that was already implemented and validated (it
-comes from `run_pipeline_B.py`). **The SIM → PATT acceptance criterion is
+comes from `run_pipeline_B.py`). Its check is: take the pattern with the
+smallest total weekly delivery for each store, sum those minima over the depot's
+stores, divide by the six delivery days, and require `check_margin` headroom
+against the depot size. If even that lower bound does not fit, no combination of
+patterns can, so PATT is skipped entirely and the requirement goes back to the
+RLRP. **The SIM → PATT acceptance criterion is
 provisional**: it accepts when the reference variant's waste % and stockout %
 stay within a tolerance of the PATT prediction. The thresholds are a modelling
 decision that still needs sign-off — see WEBTOOL.md §9.4. They are exposed under

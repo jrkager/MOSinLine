@@ -521,7 +521,16 @@ fix the reproducibility problems already noted in `CLAUDE.md`.
    AnyLogic? AnyLogic can't be driven from the web tool (it is a GUI app with a
    manual `_dir`/`configId` setup), so v1 realistically means: Python DES inside
    the tool, AnyLogic as a downloadable export + checklist.
-4. **The feedback loop is now the point (§0), so it has to actually run.** The
+4. **The feedback loop is now the point (§0), so it has to actually run.**
+   *Confirmed by Kailin (5 Aug 2026):* the RLRP works with aggregate demand —
+   one average daily number per store, no weekday or segment structure — and
+   sizes the warehouse just big enough for it, because capacity costs money.
+   PATT visits a store only a few days a week, so a delivery carries several
+   days of demand plus whatever expired on the shelf (the (R,S) policy refills
+   to S, so expired units are automatically re-ordered); that surplus grows as
+   frequency drops. Hence the pre-check and the capacity edge. She also confirms
+   the DPPP–simulation feedback loop is **still being written on her side**, so
+   our λ edge stays provisional and should be treated as replaceable. The
    RLRP↔PATT edge already works for real in `run_pipeline_B.py` (capacity
    feedback, up to `MAX_ROUNDS = 6`) — that edge is demo-ready. The SIM→PATT
    λ edge is **not**: `is_good_enough()` is an empty stub. Minimum viable

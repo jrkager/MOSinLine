@@ -46,6 +46,8 @@ def solve_rlrp(M, inst, params: RunParams, layout: RunLayout, rnd: int):
     from rlrp.algorithm import ourAlgorithm as rlrp_main
 
     logfile = layout.log(f"round{rnd}_rlrp.log")
+    # create_rlrp_instance_data() reads this off the instance
+    inst.second_stage_penalty_factor = params.rlrp.second_stage_penalty_factor
     alg_params = M.create_rlrp_instance_data(
         inst,
         gap=params.rlrp.gap,
@@ -54,6 +56,13 @@ def solve_rlrp(M, inst, params: RunParams, layout: RunLayout, rnd: int):
     )
     alg_params.HEURTIMELIMIT = params.rlrp.heur_timelimit
     alg_params.n_threads = params.rlrp.n_threads
+    # The RLRP sees one aggregate number per store, with no weekday structure:
+    # create_rlrp_instance_data() hardcodes the average (option 1), which is the
+    # intended semantics. Override here rather than editing main.py so the
+    # aggregation stays selectable without touching the glue layer.
+    if params.rlrp.demand_aggregation != 1:
+        alg_params.app.inst.beta_k_j = inst.aggregate_demands_rlrp(
+            option=params.rlrp.demand_aggregation)
 
     t0 = time.time()
     try:
@@ -146,9 +155,17 @@ def build_patt_units(M, alns, inst, rlrp_result, params: RunParams) -> List[Dict
 def capacity_check(unit: Dict[str, Any], rlrp_result, params: RunParams) -> Dict[str, Any]:
     """Can the depot RLRP sized actually carry the minimum PATT throughput?
 
-    Straight from run_pipeline_B.depot_check: the cheapest feasible pattern per
-    store gives a lower bound on weekly delivered tonnage; spread over 6 days
-    that is the daily throughput the depot must support.
+    Straight from run_pipeline_B.depot_check. The RLRP sized the depot for each
+    store's *average daily* demand. PATT delivers to a store on only a few days
+    a week, so a delivery carries several days of demand at once -- plus a bit
+    more, because the (R,S) policy refills to the order-up-to level and so
+    re-orders whatever expired on the shelf since the last visit. That surplus
+    grows as delivery frequency drops.
+
+    So: take the pattern with the smallest total weekly delivery for each store,
+    sum those minima over the depot's stores, and spread over the 6 delivery
+    days. If even that lower bound does not fit the depot, no combination of
+    patterns can, and there is no point running PATT at all.
     """
     a = unit["alns"]
     s, depot_id = unit["scenario_id"], unit["depot_id"]
@@ -160,7 +177,7 @@ def capacity_check(unit: Dict[str, Any], rlrp_result, params: RunParams) -> Dict
         for f in a.stores
     )
     need = min_delivered / 6.0
-    ok = need * params.feedback.step_cap <= cap + 1e-9
+    ok = need * params.feedback.check_margin <= cap + 1e-9
     return {
         "scenario_id": s,
         "depot_id": depot_id,
@@ -619,22 +636,6 @@ def run_pipeline(params: RunParams, layout: RunLayout,
                                  headline=f"{total_patterns} store patterns, "
                                           f"{total_routes} routes, lambda={lam:.2f}")
 
-            if params.feedback.mode == "single":
-                tracker.start_stage(rnd, "sim")
-                sim_art = run_sim(units, params, rnd)
-                write_json(layout.sim(rnd), sim_art)
-                verdict = sim_verdict(sim_art, params)
-                sim_art["verdict"] = verdict
-                write_json(layout.sim(rnd), sim_art)
-                tracker.finish_stage(rnd, "sim", headline=_sim_headline(sim_art, params))
-                tracker.finish_round(rnd, outcome_kind="accepted",
-                                     reason="single-pass mode: no feedback applied")
-                timeline.append(_timeline_entry(rnd, lam, "accepted",
-                                                "single-pass mode", {"verdict": verdict}))
-                outcome = {"status": "completed",
-                           "reason": "single pass complete", "rounds": rnd}
-                break
-
             # ---------------- stage 3: SIM ----------------
             _check_stop(layout)
             tracker.start_stage(rnd, "sim",
@@ -646,6 +647,19 @@ def run_pipeline(params: RunParams, layout: RunLayout,
             sim_art["verdict"] = verdict
             write_json(layout.sim(rnd), sim_art)
             tracker.finish_stage(rnd, "sim", headline=_sim_headline(sim_art, params))
+
+            # Only "full" closes the SIM -> PATT edge. In "single" and "capacity"
+            # the simulation is reporting, not steering: the run stops here
+            # whatever the verdict says.
+            if params.feedback.mode != "full":
+                reason = (f"{params.feedback.mode} mode: simulation is reported but not "
+                          f"fed back ({verdict['reason']})")
+                tracker.finish_round(rnd, outcome_kind="accepted", reason=reason,
+                                     detail={"verdict": verdict})
+                timeline.append(_timeline_entry(rnd, lam, "accepted", reason,
+                                                {"verdict": verdict}))
+                outcome = {"status": "completed", "reason": reason, "rounds": rnd}
+                break
 
             # ---------------- feedback edge SIM -> PATT: lambda --------------
             if verdict["accepted"]:

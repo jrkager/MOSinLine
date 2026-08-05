@@ -89,6 +89,10 @@ class FeedbackParams:
     mode: str = "full"
 
     # --- PATT -> RLRP edge (capacity feedback, from run_pipeline_B.py) ---
+    # check_margin and step_cap are numerically equal in run_pipeline_B.py but
+    # mean different things: the first is the headroom the feasibility check
+    # demands, the second caps how fast demand may be scaled between rounds.
+    check_margin: float = 1.15  # required headroom for a (scenario, depot) to pass
     safety: float = 1.35        # target headroom on fed-back throughput
     step_cap: float = 1.15      # max demand scaling per round (gentle on RLRP)
     max_rounds: int = 6
