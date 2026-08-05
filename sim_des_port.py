@@ -33,6 +33,21 @@ class StoreCfg:
     plan_flag: list                # [t]=True if delivery scheduled on weekday t
 
 
+def _batch_qty(sl):
+    """Total quantity in a batch list [[qty, expiry], ...]."""
+    return sum(b[0] for b in sl)
+
+
+def _remove_from_back(sl, q):
+    """Remove quantity q from the newest end of a batch list (un-deliver)."""
+    while q > 1e-9 and sl:
+        take = min(q, sl[-1][0])
+        sl[-1][0] -= take
+        q -= take
+        if sl[-1][0] <= 1e-9:
+            sl.pop()
+
+
 @dataclass
 class SimKPIs:
     weeks: int = 0
@@ -112,7 +127,7 @@ class DESPort:
         in the decoupled flow, matching calculateUrgencyScore."""
         best = float("inf")
         for p in PRODUCTS:
-            on_hand = len(shelves[sid][p])
+            on_hand = _batch_qty(shelves[sid][p])
             mu = self._mu_until_next(sid, p, today)
             u = on_hand - (mu + Z_URGENCY * math.sqrt(max(mu, 0.0)))
             best = min(best, u)
@@ -123,10 +138,10 @@ class DESPort:
         rng = np.random.RandomState(seed)
         k = SimKPIs(weeks=record_weeks)
 
+        # shelves[i][p]: list of batches [qty, expiry_day]  (continuous world)
         shelves = {i: {p: [] for p in PRODUCTS} for i in range(self.N)}
-        demand_carry = {i: {p: 0.0 for p in PRODUCTS} for i in range(self.N)}   # lists of expiry days
-        pending = {i: {p: int(round(self.cfg[i].S[p])) for p in PRODUCTS} for i in range(self.N)}
-        deliver_today = {i: {p: 0 for p in PRODUCTS} for i in range(self.N)}
+        pending = {i: {p: float(self.cfg[i].S[p]) for p in PRODUCTS} for i in range(self.N)}
+        deliver_today = {i: {p: 0.0 for p in PRODUCTS} for i in range(self.N)}
 
         total_days = (warmup_weeks + record_weeks) * 6
         record_start = warmup_weeks * 6
@@ -140,9 +155,9 @@ class DESPort:
             # ---- 05:00 (1) expiry: product A only ----
             for i in range(self.N):
                 sl = shelves[i]["A"]
-                fresh_kept = [e for e in sl if e > sim_day]
-                expired = len(sl) - len(fresh_kept)
-                if expired and rec:
+                fresh_kept = [b for b in sl if b[1] > sim_day]
+                expired = _batch_qty(sl) - _batch_qty(fresh_kept)
+                if expired > 1e-9 and rec:
                     k.waste["A"] += expired
                 shelves[i]["A"] = fresh_kept
 
@@ -157,19 +172,19 @@ class DESPort:
             for i in range(self.N):
                 for pi, p in enumerate(PRODUCTS):
                     if self.cfg[i].plan_flag[t_tom]:
-                        ip = len(shelves[i][p]) + deliver_today[i][p]
+                        ip = _batch_qty(shelves[i][p]) + deliver_today[i][p]
                         mu_today = self.cfg[i].mu[p][t]
-                        pending[i][p] = max(0, int(round(self.cfg[i].S[p] - ip + mu_today)))
+                        pending[i][p] = max(0.0, self.cfg[i].S[p] - ip + mu_today)
                     else:
-                        pending[i][p] = 0
+                        pending[i][p] = 0.0
 
             # ---- 05:00 (4) morning delivery onto shelves ----
             for i in range(self.N):
                 for p in PRODUCTS:
                     q = deliver_today[i][p]
-                    if q > 0:
+                    if q > 1e-9:
                         exp = sim_day + (SHELF_LIFE_A if p == "A" else NO_EXPIRY)
-                        shelves[i][p].extend([exp] * q)
+                        shelves[i][p].append([q, exp])
 
             # ---- 06:00 route execution ----
             for route in self.routes.get(t, []):
@@ -184,29 +199,29 @@ class DESPort:
                         k.cancel_by_day[t] += 1
                     for i in route:
                         tot = sum(deliver_today[i][p] for p in PRODUCTS)
-                        if tot > 0:
+                        if tot > 1e-9:
                             skipped_today[i] = True
-                            for p in PRODUCTS:            # un-deliver (newest units)
+                            for p in PRODUCTS:            # un-deliver (newest batch)
                                 q = deliver_today[i][p]
-                                if q:
-                                    del shelves[i][p][-q:]
+                                if q > 1e-9:
+                                    _remove_from_back(shelves[i][p], q)
                     continue
 
                 # DROP rule (Variants 1/3/4)
                 kept_stops = []
                 for i in route:
                     tot = sum(deliver_today[i][p] for p in PRODUCTS)
-                    if tot <= 0:
+                    if tot <= 1e-9:
                         continue
                     if self.drop_active and tot < DROP_THRESHOLD:
                         skipped_today[i] = True
                         if rec:
                             k.stores_dropped += 1
                             k.drop_by_store[i] = k.drop_by_store.get(i, 0) + 1
-                        for p in PRODUCTS:                # un-deliver
+                        for p in PRODUCTS:                # un-deliver (newest batch)
                             q = deliver_today[i][p]
-                            if q:
-                                del shelves[i][p][-q:]
+                            if q > 1e-9:
+                                _remove_from_back(shelves[i][p], q)
                     else:
                         kept_stops.append(i)
                 if not kept_stops:
@@ -230,9 +245,9 @@ class DESPort:
                             else:
                                 if self.cfg[j].plan_flag[t]:
                                     continue      # scheduled today -> own route
-                            topup = {p: max(0, int(round(self.cfg[j].S[p] - len(shelves[j][p]))))
+                            topup = {p: max(0.0, self.cfg[j].S[p] - _batch_qty(shelves[j][p]))
                                      for p in PRODUCTS}
-                            if sum(topup.values()) <= 0:
+                            if sum(topup.values()) <= 1e-9:
                                 continue
                             if self._dist(self.cfg[j].xy, last_xy) > MAX_SUPPLEMENT_DISTANCE:
                                 continue
@@ -241,11 +256,11 @@ class DESPort:
                         for _, j, topup in cand:
                             any_added = False
                             for p in PRODUCTS:
-                                q = min(int(spare), topup[p])
-                                if q <= 0:
+                                q = min(spare, topup[p])
+                                if q <= 1e-9:
                                     continue
                                 exp = sim_day + (SHELF_LIFE_A if p == "A" else NO_EXPIRY)
-                                shelves[j][p].extend([exp] * q)
+                                shelves[j][p].append([q, exp])
                                 loads.setdefault(j, {pp: 0 for pp in PRODUCTS})
                                 loads[j][p] += q
                                 spare -= q
@@ -258,7 +273,7 @@ class DESPort:
                                 if rec:
                                     k.piggyback_stops += 1
                                     k.piggy_by_store[j] = k.piggy_by_store.get(j, 0) + 1
-                            if spare <= 0:
+                            if spare <= 1e-9:
                                 break
 
                 # truck KPI: depot -> stops -> depot, decreasing load
@@ -289,21 +304,28 @@ class DESPort:
                     if mu <= 0:
                         continue
                     draw = max(0.0, rng.normal(mu, DEMAND_CV * mu))
-                    pool = demand_carry[i][p] + draw          # carry-over discretization
-                    n = int(pool)
-                    demand_carry[i][p] = pool - n
                     if rec:
-                        k.demand[p] += n
+                        k.demand[p] += draw
                     sl = shelves[i][p]
-                    for _ in range(n):
-                        if sl:
-                            idx = 0 if rng.random() < P_FIFO else len(sl) - 1
-                            sl.pop(idx)
-                            if rec:
-                                k.served[p] += 1
-                        else:
-                            if rec:
-                                k.lost[p] += 1
+                    # fluid FIFO/LIFO split; FIFO stream served FIRST under scarcity
+                    d_fifo = P_FIFO * draw
+                    d_lifo = (1.0 - P_FIFO) * draw
+                    while d_fifo > 1e-9 and sl:
+                        take = min(d_fifo, sl[0][0])
+                        sl[0][0] -= take
+                        d_fifo -= take
+                        if sl[0][0] <= 1e-9:
+                            sl.pop(0)
+                    while d_lifo > 1e-9 and sl:
+                        take = min(d_lifo, sl[-1][0])
+                        sl[-1][0] -= take
+                        d_lifo -= take
+                        if sl[-1][0] <= 1e-9:
+                            sl.pop()
+                    if rec:
+                        lost_now = d_fifo + d_lifo
+                        k.lost[p] += lost_now
+                        k.served[p] += draw - lost_now
         return k
 
 

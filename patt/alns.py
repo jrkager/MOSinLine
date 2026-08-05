@@ -1,42 +1,3 @@
-# COMPREHENSIVE ALNS IMPLEMENTATION — MOSinLine PATT module, product-segment version
-# Combines pattern optimization (Stage 1) and routing optimization (Stage 2)
-# Following Huebner and Oestermeier (2019) approach exactly
-#
-# === MODIFICATIONS vs. standalone version ===
-# 1. Day-varying demand: mu_{f,t} = d_bar_f * w_t (day-of-week multipliers)
-# 2. Day-varying sigma: sigma_{f,t} = CV * mu_{f,t}
-# 3. Unified (R,S) FIFO/LIFO shelf simulation for delivery quantities + waste
-# 4. Food waste purchasing cost (c_purchase * D_f * wf) added to economic side
-# 5. No alpha/beta — theta_FW and theta_TR are direct emission factors (kg CO2)
-# 6. Mixed consumer behavior: p_FIFO oldest-first + p_LIFO newest-first
-#
-# === MOSinLine INTEGRATION (this file is a drop-in for patt/alns.py) ===
-# A. load_instance passes through all extra coefficients from the instance JSON
-# B. delta is taken from instance["distances"] if provided (same matrix as RLRP),
-#    otherwise computed as euclidean from loc
-# C. scalar parameters (vehicle_capacity, cost_per_km, marginal_co2_emissions,
-#    weighting_factor_patt, vehicle_empty_weight, ...) are read from the instance
-#    file with the standalone defaults as fallback.
-#    RLRP consistency: marginal_co2_emissions == eta * theta_TR
-# D. main(instance_file_name=...) returns (best_solution, instance_data)
-#
-# === PRODUCT SEGMENTS (tier 1) ===
-# Segments follow the temperature-specific segmentation of grocery distribution
-# (Huebner & Ostermeier 2018, Transportation Science) and MOSinLine's ProductClass:
-#   dry (ambient), fresh (chilled), frozen.
-# Per segment: own demand mu_{f,s,t}, own shelf life SL_s, own embodied-emission
-# factor theta_FW_s (kg CO2e per t wasted, production-to-shelf boundary;
-# ifeu 2020 / Poore & Nemecek 2018).
-# One delivery pattern per store (co-delivery): the (R,S) simulation runs per
-# (store, segment, pattern); truck loads aggregate over segments
-#   p_frt[f,r,t] = sum_s p_fsrt[f,s,r,t]
-# and the pattern shelf-life filter uses SL_eff(f) = min over the store's
-# segments with finite SL. Segments with shelf_life=None never expire within
-# the weekly horizon (expiry waste = 0 by construction).
-# Backward compatible: without "demand_by_segment" in the instance, all demand
-# is treated as segment "fresh" and the model behaves like the single-segment
-# version.
-
 import numpy as np
 import json
 import random
@@ -1363,7 +1324,7 @@ class ComprehensiveALNS:
         n_active_seg = len(self.segment_names)
         print(f"52-week (R,S) FIFO/LIFO simulation: {time.time() - _sim_start:.2f}s "
               f"({len(self.stores)} stores x {len(self.R)} patterns x {n_active_seg} segments, "
-              f"p_FIFO={self.params.get('p_fifo', 0.70)}, N_RUNS=2)")
+              f"p_FIFO={self.params.get('p_fifo', 0.70)}, N_RUNS=10)")
         
         self.gamma_f = {}
         for f in self.stores:
@@ -1436,7 +1397,8 @@ class ComprehensiveALNS:
         (R,S) policy: S=max(q_cycle), order on day before delivery (L=1).
         Per-day sequence: Expire -> Receive -> Order (placed in the morning,
         before today's demand is realized) -> Demand -> End-of-day update.
-        Mixed FIFO/LIFO consumer behavior. N_RUNS=2, 52-week recording.
+        Fluid FIFO/LIFO split (FIFO stream served first under scarcity).
+        N_RUNS=10, 52-week recording.
         """
         self.p_frt = {}
         self.p_fsrt = {}
@@ -1520,7 +1482,6 @@ class ComprehensiveALNS:
                         pending_order = None
                         run_waste = 0.0
                         run_stockout = 0.0
-                        demand_carry = 0.0   # sub-unit demand is carried over, not discarded
                         
                         for abs_day in range(total_days_sim):
                             weekday = abs_day % 6
@@ -1545,7 +1506,7 @@ class ComprehensiveALNS:
                                 shelf.append([delivered_qty, abs_day + sl_add])
                                 pending_order = None
                             elif is_delivery and abs_day == 0:
-                                delivered_qty = float(int(round(S_level)))
+                                delivered_qty = S_level
                                 shelf.append([delivered_qty, abs_day + sl_add])
                             
                             if recording and is_delivery and delivered_qty > 0:
@@ -1556,37 +1517,35 @@ class ComprehensiveALNS:
                             
                             # Order (placed in the morning, before today's demand)
                             if is_order:
-                                order_qty = float(max(0, int(round(S_level - ip_pre + mu_arr[weekday]))))
+                                order_qty = max(0.0, S_level - ip_pre + mu_arr[weekday])
                                 pending_order = (order_qty, abs_day + 1)
                             
-                            # Demand (carry-over discretization: fractional remainders
-                            # accumulate until they form a whole unit -> exact conservation
-                            # of expected volume even for sub-unit daily demands)
+                            # Demand: continuous draw, consumed as a fluid the same day
+                            # (continuous world: no discretization)
                             demand = max(0.0, rng.normal(mu_arr[weekday], sigma_arr[weekday]))
-                            _pool = demand_carry + demand
-                            demand = float(int(_pool))       # whole units released today
-                            demand_carry = _pool - demand    # remainder carried to tomorrow
                             
-                            # ---- Per-customer mixed FIFO/LIFO consumption (Path B) ----
-                            # Discretize the day's demand into whole customers (the DES
-                            # rounds demand to integer units), then serve them ONE AT A
-                            # TIME. Each customer draws Bernoulli(P_FIFO) independently:
-                            # a FIFO customer takes 1 unit from the OLDEST batch (front),
-                            # a LIFO customer from the NEWEST (back). The shelf is updated
-                            # after every customer.
-                            n_customers = int(round(demand))
-                            for _ in range(n_customers):
-                                use_fifo = (rng.random() < P_FIFO)
-                                need = 1.0  # one unit per customer
-                                while need > 1e-9 and shelf:
-                                    idx = 0 if use_fifo else len(shelf) - 1
-                                    take = min(need, shelf[idx][0])
-                                    shelf[idx][0] -= take
-                                    need -= take
-                                    if shelf[idx][0] <= 1e-9:
-                                        shelf.pop(idx)
-                                if need > 1e-9 and recording:
-                                    run_stockout += need
+                            # ---- Fluid FIFO/LIFO split (continuous limit of the
+                            # per-customer Bernoulli model): a share P_FIFO of today's
+                            # demand drains from the OLDEST batch (queue front), the
+                            # rest from the NEWEST (queue back).
+                            # Scarcity convention: the FIFO stream is served FIRST,
+                            # then the LIFO stream. Mirror this exactly in the DES.
+                            d_fifo = P_FIFO * demand
+                            d_lifo = (1.0 - P_FIFO) * demand
+                            while d_fifo > 1e-9 and shelf:
+                                take = min(d_fifo, shelf[0][0])
+                                shelf[0][0] -= take
+                                d_fifo -= take
+                                if shelf[0][0] <= 1e-9:
+                                    shelf.pop(0)
+                            while d_lifo > 1e-9 and shelf:
+                                take = min(d_lifo, shelf[-1][0])
+                                shelf[-1][0] -= take
+                                d_lifo -= take
+                                if shelf[-1][0] <= 1e-9:
+                                    shelf.pop(-1)
+                            if recording:
+                                run_stockout += d_fifo + d_lifo
                         
                         waste_per_week = run_waste / RECORD_WEEKS
                         stockout_per_week = run_stockout / RECORD_WEEKS
@@ -2504,6 +2463,9 @@ def save_comprehensive_results(solution, instance_data, runtime):
     raw_fw_purchase_cost = 0
     raw_fw_emission_cost = 0
     raw_stockout_cost = 0
+    dem_total = 0.0
+    waste_units = 0.0
+    so_units = 0.0
     
     for store, pattern_id in solution.pattern_assignments.items():
         econ = ev.c_fr[store, pattern_id]
@@ -2518,6 +2480,9 @@ def save_comprehensive_results(solution, instance_data, runtime):
         raw_fw_purchase_cost += fw_purchase
         raw_fw_emission_cost += fw_emission
         raw_stockout_cost += stockout
+        dem_total += ev.D_f[store]
+        waste_units += ev.D_f[store] * wf
+        so_units += ev.D_f[store] * sf
     
     raw_transport_dist_cost = 0.0   # c_km * distance  (distance-based)
     raw_transport_fuel_cost = 0.0   # c_fuel * fuel    (distance-and-load-based)
@@ -2574,6 +2539,7 @@ def save_comprehensive_results(solution, instance_data, runtime):
         "runtime": runtime,
         "total_distance": total_distance,
         "total_load": total_load,
+        "delivered_u": dem_total - so_units + waste_units,   # conservation: demand - stockout + waste
         "vehicles_used": len(vehicles_used),
         "num_stores": len(instance_data['stores']),
         "num_vehicles": getattr(solution, "num_vehicles", None),
