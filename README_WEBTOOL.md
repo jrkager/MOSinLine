@@ -46,8 +46,10 @@ no CORS or base-URL configuration is needed for local use. To point the
 frontend at a different backend, set `PUBLIC_API_BASE_URL`.
 
 Start a run from **New run**. The *Demo preset* (5 stores, 15 ALNS iterations)
-finishes in about 30 seconds and still exercises the full loop, including real
-feedback rounds — that is the one to use when demoing live.
+finishes in about a minute and still exercises the full loop, including real
+feedback rounds — that is the one to use when demoing live. Most of that minute
+is PATT's own (R,S) shelf simulation, which runs once per solve before the first
+ALNS iteration; raising the iteration count is cheaper than it looks.
 
 ## Or drive it from the CLI
 

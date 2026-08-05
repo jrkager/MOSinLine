@@ -106,8 +106,15 @@ python export_for_anylogic.py --out /path/to/csvdir --iters 500
 python run.py run --run-name demo --stores 10 --patt-iterations 25
 ```
 The parameterised entry point used by the web tool: runs the full RLRP → PATT →
-SIM loop with feedback and writes `exports/runs/<id>/`. ~30–60 s at 25
-iterations. Prefer this over the older drivers when you need to vary parameters.
+SIM loop with feedback and writes `exports/runs/<id>/`. ~2 min (10 stores, 25
+iterations, 3 rounds); ~1 min at `--stores 5 --patt-iterations 15`. Prefer this
+over the older drivers when you need to vary parameters.
+
+Note on timings: the `N_RUNS = 10` change in `3cc93a6` made PATT's internal
+shelf simulation ~5× more expensive, and it runs once per solve *before* the
+first ALNS iteration. Everything got roughly 2× slower, and any timing recorded
+before that commit under-reports. It also means raising the iteration count is
+cheaper than it looks — the fixed setup cost dominates short runs.
 
 ```bash
 python patt/alns.py kailin_pvrp_algorithm/instances/R101_5stores_s6.json
