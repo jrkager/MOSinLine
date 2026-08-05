@@ -5,10 +5,10 @@ logistics. The repo brings together three independently developed pieces of
 research code and makes them work as one pipeline — and, crucially, as a
 **loop**, where each stage can hand its problem back to the previous one.
 
-| Stage | Question it answers | Author / method |
+| Stage | Question it answers | Subproject / method |
 |---|---|---|
-| **RLRP** | Which depots open, at what size, and which stores does each serve? | Johannes — Gurobi MIP with robust scenario decomposition (ASBP) |
-| **PATT** (DPPP) | On which weekdays is each store delivered, how much arrives, and on which routes? | Kailin — ALNS for patterns + LNS for routing |
+| **RLRP** | Which depots open, at what size, and which stores does each serve? | Thielen (ODM) — Gurobi MIP with robust scenario decomposition (ASBP) |
+| **PATT** (DPPP) | On which weekdays is each store delivered, how much arrives, and on which routes? | Hübner (SCM) — ALNS for patterns + LNS for routing |
 | **SIM** | What actually happens when that plan is executed for a year? | Discrete-event simulation (Python port + AnyLogic model) |
 
 ```

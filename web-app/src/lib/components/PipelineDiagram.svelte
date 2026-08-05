@@ -14,7 +14,7 @@
 			key: 'rlrp',
 			title: 'RLRP',
 			sub: 'Robust Location–Routing',
-			who: 'Johannes · Gurobi MIP + scenario decomposition',
+			who: 'Thielen (ODM) · Gurobi MIP + scenario decomposition',
 			input: {
 				title: 'consumes',
 				lines: [
@@ -38,7 +38,7 @@
 			key: 'patt',
 			title: 'PATT / DPPP',
 			sub: 'Delivery Pattern Planning',
-			who: 'Kailin · ALNS (patterns) + LNS (routing)',
+			who: 'Hübner (SCM) · ALNS (patterns) + LNS (routing)',
 			input: {
 				title: 'consumes',
 				lines: [
