@@ -1448,7 +1448,7 @@ class ComprehensiveALNS:
         self.S_fsr = {}   # order-up-to level per (store, segment, pattern) — exported to the DES
         
         z_sl = 1.645
-        N_RUNS = 2
+        N_RUNS = 10
         WARMUP_WEEKS = 2
         RECORD_WEEKS = 52
         SIM_SEED = 12345
@@ -1545,8 +1545,8 @@ class ComprehensiveALNS:
                                 shelf.append([delivered_qty, abs_day + sl_add])
                                 pending_order = None
                             elif is_delivery and abs_day == 0:
-                                delivered_qty = S_level
-                                shelf.append([S_level, abs_day + sl_add])
+                                delivered_qty = float(int(round(S_level)))
+                                shelf.append([delivered_qty, abs_day + sl_add])
                             
                             if recording and is_delivery and delivered_qty > 0:
                                 delivery_qty_sums[weekday] += delivered_qty
@@ -1556,7 +1556,7 @@ class ComprehensiveALNS:
                             
                             # Order (placed in the morning, before today's demand)
                             if is_order:
-                                order_qty = max(0.0, S_level - ip_pre + mu_arr[weekday])
+                                order_qty = float(max(0, int(round(S_level - ip_pre + mu_arr[weekday]))))
                                 pending_order = (order_qty, abs_day + 1)
                             
                             # Demand (carry-over discretization: fractional remainders
