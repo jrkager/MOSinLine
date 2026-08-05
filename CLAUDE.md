@@ -44,7 +44,10 @@ translation code in `main.py` / the `run_*.py` drivers over editing `rlrp/` or
 | `reference/` | Documentation-only Python files describing *what was patched and why* (parameter alignment derivation, segment-demand export, the `p_frt` internal-id bug fix). Not imported anywhere — read these before touching the parameter math. |
 | `solomon_data/` | Solomon VRP benchmark files. |
 | `tex/` | Integration report (`.tex` + PDF), GoodNotes sketch PDF, flowchart. |
-| `logs/`, `results*/`, `out/` | Run artifacts; gitignored (`logs/`, `*.csv`). |
+| `run.py`, `webtool/` | Web-tool layer: parameterised pipeline CLI, run-scoped artifact tree, progress model, FastAPI backend (`webtool/server/`). See [README_WEBTOOL.md](README_WEBTOOL.md) and [WEBTOOL.md](WEBTOOL.md). |
+| `web-app/` | SvelteKit frontend (the loop view). |
+| `schemas/`, `sample_instance_payload.json` | Instance payload format for the web tool. |
+| `logs/`, `results*/`, `out/`, `exports/` | Run artifacts; gitignored. |
 
 ## Setup
 
@@ -97,6 +100,13 @@ python export_for_anylogic.py --out /path/to/csvdir --iters 500
 ```
 
 ```bash
+python run.py run --run-name demo --stores 10 --patt-iterations 25
+```
+The parameterised entry point used by the web tool: runs the full RLRP → PATT →
+SIM loop with feedback and writes `exports/runs/<id>/`. ~30–60 s at 25
+iterations. Prefer this over the older drivers when you need to vary parameters.
+
+```bash
 python patt/alns.py kailin_pvrp_algorithm/instances/R101_5stores_s6.json
 ```
 PATT standalone on a JSON instance. Writes into `results/` in the **current
@@ -147,6 +157,9 @@ values**. Paper-grade numbers need 500–2000.
 These are real, currently-true properties of the code — don't "fix" them silently,
 and don't be surprised by them.
 
+- **Use `run.py`, not `main.py`, to execute the pipeline.** `run.py` +
+  `webtool/pipeline.py` is the parameterised implementation of the same loop,
+  with the capacity feedback that actually works and artifacts on disk.
 - **`main.py`'s feedback loop is a scaffold, and running it is a waste of time.**
   `PATTResult.check_infeasible()` and `SIMResult.is_good_enough()` are empty stubs
   returning `None`, and `solve_sim()` returns an empty `SIMResult` without
@@ -196,4 +209,8 @@ and don't be surprised by them.
   `seed=20000 + 37*run`) are deliberate.
 - After changing anything in the handoff path, re-run `run_full_pipeline_sim.py`
   and check the PATT-vs-Variant-2 agreement before anything else.
-- There is no test suite and no linter config.
+- There is no test suite and no linter config. `svelte-check` covers the frontend
+  (`cd web-app && pnpm check`).
+- The web tool renders only from the JSON artifact tree under
+  `exports/runs/<id>/frontend/`. To add a screen, emit a new artifact in
+  `webtool/pipeline.py` — no backend endpoint is needed.

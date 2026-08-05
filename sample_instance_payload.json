@@ -1,0 +1,1964 @@
+{
+ "schema_version": 1,
+ "instance_id": "sample_5stores",
+ "second_stage_penalty_factor": 1.5,
+ "depots": [
+  {
+   "depot_id": -1,
+   "x": 35.0,
+   "y": 35.0,
+   "fixed_cost": 5600.0,
+   "marginal_cost": 35.0,
+   "max_size": 30.0
+  },
+  {
+   "depot_id": -2,
+   "x": 45.0,
+   "y": 15.0,
+   "fixed_cost": 5600.0,
+   "marginal_cost": 35.0,
+   "max_size": 30.0
+  },
+  {
+   "depot_id": -3,
+   "x": 2.0,
+   "y": 23.0,
+   "fixed_cost": 5600.0,
+   "marginal_cost": 35.0,
+   "max_size": 30.0
+  }
+ ],
+ "stores": [
+  {
+   "store_id": 12,
+   "x": 50.0,
+   "y": 35.0
+  },
+  {
+   "store_id": 77,
+   "x": 53.0,
+   "y": 43.0
+  },
+  {
+   "store_id": 49,
+   "x": 6.0,
+   "y": 68.0
+  },
+  {
+   "store_id": 9,
+   "x": 55.0,
+   "y": 60.0
+  },
+  {
+   "store_id": 1,
+   "x": 41.0,
+   "y": 49.0
+  }
+ ],
+ "scenarios": [
+  {
+   "scenario_id": 1,
+   "name": "scenario 1"
+  },
+  {
+   "scenario_id": 2,
+   "name": "scenario 2"
+  },
+  {
+   "scenario_id": 3,
+   "name": "scenario 3"
+  }
+ ],
+ "demand": [
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.5674
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.5359
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.5674
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.6304
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 0.7565
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.725
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 0.8337
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 0.7874
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 0.8337
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 0.9263
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 1.1116
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 1.0653
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.1756
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.1658
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.1756
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.1951
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.2341
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.2244
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.2792
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.2637
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.2792
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.3103
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 0.3723
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.3568
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 0.4387
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 0.4143
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 0.4387
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 0.4874
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 0.5849
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 0.5605
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.1316
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.1243
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.1316
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.1462
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.1755
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.1682
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 1.0654
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 1.0062
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 1.0654
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 1.1838
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 1.4205
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 1.3613
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.6459
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 1.5544
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.6459
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 1.8288
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 2.1945
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 2.1031
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.4366
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.4123
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.4366
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.4851
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.5821
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.5579
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.7748
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.7318
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.7748
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.8609
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 1.0331
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.99
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.1843
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 1.1185
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.1843
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 1.3159
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 1.5791
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 1.5133
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.3731
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.3524
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.3731
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.4146
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.4975
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.4767
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 1.263
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 1.1928
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 1.263
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 1.4034
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 1.684
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 1.6139
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.8431
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 1.7407
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.8431
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 2.0479
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 2.4575
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 2.3551
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.4057
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.3831
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.4057
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.4507
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.5409
+  },
+  {
+   "scenario_id": 1,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.5183
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.6809
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.643
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.6809
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.7565
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 0.9078
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.87
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.0004
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 0.9448
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.0004
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 1.1116
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 1.3339
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 1.2783
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.2107
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.199
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.2107
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.2341
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.2809
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.2692
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.3351
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.3165
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.3351
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.3723
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 0.4468
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.4282
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 0.5264
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 0.4972
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 0.5264
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 0.5849
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 0.7019
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 0.6726
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.1579
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.1491
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.1579
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.1755
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.2106
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.2018
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 1.2785
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 1.2074
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 1.2785
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 1.4205
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 1.7046
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 1.6336
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.9751
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 1.8653
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.9751
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 2.1945
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 2.6334
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 2.5237
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.5239
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.4948
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.5239
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.5821
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.6985
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.6694
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.9298
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.8781
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.9298
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 1.0331
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 1.2397
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 1.188
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.4212
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 1.3422
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.4212
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 1.5791
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 1.8949
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 1.8159
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.4477
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.4229
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.4477
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.4975
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.597
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.5721
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 1.5156
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 1.4314
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 1.5156
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 1.684
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 2.0208
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 1.9366
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 2.2117
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 2.0888
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 2.2117
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 2.4575
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 2.9489
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 2.8261
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.4868
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.4598
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.4868
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.5409
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.6491
+  },
+  {
+   "scenario_id": 2,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.622
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.457
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.4316
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.457
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.5078
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 0.6094
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.584
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 0.9913
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 0.9363
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 0.9913
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 1.1015
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 1.3218
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 1.2667
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.1283
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.1212
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.1283
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.1425
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.171
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 1,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.1639
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.2198
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.2076
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.2198
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.2442
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 0.293
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.2808
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 0.5236
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 0.4945
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 0.5236
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 0.5818
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 0.6982
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 0.6691
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.1061
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.1002
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.1061
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.1179
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.1415
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 9,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.1356
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.845
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.7981
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.845
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.9389
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 1.1267
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 1.0798
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.9607
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 1.8517
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.9607
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 2.1785
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 2.6142
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 2.5053
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.3422
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.3231
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.3422
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.3802
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.4562
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 12,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.4372
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 0.6115
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.5776
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 0.6115
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 0.6795
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 0.8154
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 0.7814
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 1.4175
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 1.3388
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 1.4175
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 1.575
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 1.89
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 1.8113
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.3031
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.2863
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.3031
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.3368
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.4042
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 49,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.3873
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 0,
+   "demand_t": 1.0172
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 1,
+   "demand_t": 0.9607
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 2,
+   "demand_t": 1.0172
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 3,
+   "demand_t": 1.1302
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 4,
+   "demand_t": 1.3563
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "dry",
+   "weekday": 5,
+   "demand_t": 1.2997
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 0,
+   "demand_t": 2.1943
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 1,
+   "demand_t": 2.0724
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 2,
+   "demand_t": 2.1943
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 3,
+   "demand_t": 2.4381
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 4,
+   "demand_t": 2.9257
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "fresh",
+   "weekday": 5,
+   "demand_t": 2.8038
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 0,
+   "demand_t": 0.3003
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 1,
+   "demand_t": 0.2836
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 2,
+   "demand_t": 0.3003
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 3,
+   "demand_t": 0.3337
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 4,
+   "demand_t": 0.4004
+  },
+  {
+   "scenario_id": 3,
+   "store_id": 77,
+   "segment": "frozen",
+   "weekday": 5,
+   "demand_t": 0.3837
+  }
+ ]
+}

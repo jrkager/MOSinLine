@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jrkager/MOSinLine/schemas/instance-payload.schema.json",
+  "title": "MOSinLine instance payload",
+  "description": "A complete pipeline instance: depot candidates, stores, demand scenarios, and long-form per-segment weekday demand. Distances are derived (Euclidean), not supplied.",
+  "type": "object",
+  "required": ["schema_version", "depots", "stores", "scenarios", "demand"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "instance_id": { "type": "string" },
+    "second_stage_penalty_factor": { "type": "number", "exclusiveMinimum": 0, "default": 1.5 },
+    "number_of_realizations": { "type": "integer", "minimum": 1, "default": 10 },
+    "depots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["depot_id", "x", "y", "fixed_cost", "marginal_cost", "max_size"],
+        "properties": {
+          "depot_id": {
+            "type": "integer",
+            "exclusiveMaximum": 0,
+            "description": "Negative by convention; stores are positive."
+          },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "fixed_cost": { "type": "number", "minimum": 0, "description": "Cost of opening this depot." },
+          "marginal_cost": { "type": "number", "minimum": 0, "description": "Cost per unit of size." },
+          "max_size": { "type": "number", "exclusiveMinimum": 0, "description": "Capacity cap in t/day." }
+        }
+      }
+    },
+    "stores": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["store_id", "x", "y"],
+        "properties": {
+          "store_id": { "type": "integer", "exclusiveMinimum": 0 },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "name": { "type": "string", "description": "Display only; ignored by the solver." }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["scenario_id"],
+        "properties": {
+          "scenario_id": { "type": "integer" },
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "demand": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One row per (scenario, store, segment, weekday). Missing combinations default to 0.",
+      "items": {
+        "type": "object",
+        "required": ["scenario_id", "store_id", "segment", "weekday", "demand_t"],
+        "properties": {
+          "scenario_id": { "type": "integer" },
+          "store_id": { "type": "integer", "exclusiveMinimum": 0 },
+          "segment": { "enum": ["dry", "fresh", "frozen"] },
+          "weekday": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5,
+            "description": "0 = Monday .. 5 = Saturday."
+          },
+          "demand_t": { "type": "number", "minimum": 0, "description": "Tonnes." }
+        }
+      }
+    },
+    "segments": {
+      "type": "object",
+      "description": "Optional per-segment shelf life and embodied emission factors; defaults come from patt/alns.py DEFAULT_SEGMENTS.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "shelf_life": { "type": ["integer", "null"], "description": "Days; null = no expiry within the weekly horizon." },
+          "theta_FW": { "type": "number", "description": "kg CO2e per tonne wasted." }
+        }
+      }
+    }
+  }
+}

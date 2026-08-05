@@ -8,6 +8,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import MetricTile from '$lib/components/MetricTile.svelte';
 	import RoundTimeline from '$lib/components/RoundTimeline.svelte';
+	import StageNav from '$lib/components/StageNav.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
 	import type { Progress, RoundState } from '$lib/types';
 
@@ -168,6 +169,10 @@
 </div>
 
 {#if progress}
+	<div class="card">
+		<StageNav runId={runId} round={selectedRound} />
+	</div>
+
 	<div class="card">
 		<div class="card-header">
 			<div>
