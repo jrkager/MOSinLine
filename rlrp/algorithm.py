@@ -736,6 +736,10 @@ def algorithm(params: AlgorithmParams, type: AlgorithmType = None, log_header = 
             ret.depot_sizes[sc] = yk
             # sk[i,j] cust j serverd from wh i
             ret.customer_depot_assignment[sc] = {i : [j for j in params.app.inst.J if sk[i,j]] for i in params.app.inst.I}
+            # xk[i,j] arc used, tk[i,j] load on it -- kept so the routing the
+            # second stage already computed can be reported, not just the assignment
+            ret.arcs[sc] = [key for key, used in xk.items() if used > 0.5]
+            ret.arc_loads[sc] = {key: float(tk[key]) for key in ret.arcs[sc]}
 
     return s, ret
 

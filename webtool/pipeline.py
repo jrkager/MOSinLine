@@ -76,6 +76,7 @@ def solve_rlrp(M, inst, params: RunParams, layout: RunLayout, rnd: int):
     runtime = time.time() - t0
     result = M.RLRPResult(ret)
 
+    demand_per_store = inst.aggregate_demands_rlrp(option=params.rlrp.demand_aggregation)
     scenarios = []
     for s in inst.S:
         sizes = result.depot_sizes.get(s, {})
@@ -84,14 +85,26 @@ def solve_rlrp(M, inst, params: RunParams, layout: RunLayout, rnd: int):
         for d in inst.depots:
             stores = list(assign.get(d, []))
             size = float(sizes.get(d, 0.0))
+            served = sum(float(demand_per_store[s].get(st, 0.0)) for st in stores)
             depots.append({
                 "depot_id": d,
                 "open": bool(stores) or size > 0,
                 "size_t_per_day": size,
+                "max_size_t_per_day": float(inst.max_warehouse_size.get(d, 0.0)),
+                "assigned_demand_t_per_day": served,
+                # how much of the depot RLRP built is actually used by the
+                # aggregate demand it was sized for
+                "utilisation": (served / size) if size > 1e-9 else None,
                 "stores": stores,
                 "n_stores": len(stores),
             })
-        scenarios.append({"scenario_id": s, "depots": depots})
+        scenarios.append({
+            "scenario_id": s,
+            "depots": depots,
+            "tours": _rlrp_tours(result, inst, s),
+            "store_demand_t_per_day": {st: float(demand_per_store[s].get(st, 0.0))
+                                       for st in inst.stores},
+        })
 
     open_depots = {
         s: [d["depot_id"] for d in sc["depots"] if d["open"]]
@@ -234,6 +247,11 @@ def patt_artifact(a, solution, unit, lam, runtime, trajectory, log_name) -> Dict
         r = solution.pattern_assignments[f]
         bits = list(a.patterns[r])
         qty = [float(solution.p_frt.get((f, r, t), 0.0)) for t in range(6)]
+        # per-segment delivery quantities: p_fsrt is what p_frt aggregates over
+        by_segment = {
+            seg: [float(a.p_fsrt.get((f, seg, r, t), 0.0)) for t in range(6)]
+            for seg in SEG2PROD
+        }
         stores.append({
             "internal_id": f,
             "store_id": sm[f],
@@ -243,6 +261,8 @@ def patt_artifact(a, solution, unit, lam, runtime, trajectory, log_name) -> Dict
             "pattern": bits,
             "frequency": int(sum(bits)),
             "delivery_t": qty,
+            "delivery_by_segment_t": by_segment,
+            "weekly_by_segment_t": {seg: sum(vals) for seg, vals in by_segment.items()},
             "weekly_t": float(a.D_f[f]),
             "waste_fraction": float(ev.waste_fractions[f, r]),
             "stockout_fraction": float(ev.stockout_fractions[f, r]),
@@ -277,6 +297,10 @@ def patt_artifact(a, solution, unit, lam, runtime, trajectory, log_name) -> Dict
             "n_vehicles": len(day_routes),
             "distance_km": sum(r["distance_km"] for r in day_routes),
             "delivered_t": sum(r["departure_load_t"] for r in day_routes),
+            # vehicle fill against Q, so under-used trucks are visible
+            "capacity_t": float(ev.Q) * len(day_routes) if day_routes else 0.0,
+            "max_route_load_t": max((r["departure_load_t"] for r in day_routes),
+                                    default=0.0),
         })
 
     # --- model-predicted KPIs (what SIM is checked against) ---
@@ -732,6 +756,63 @@ def run_pipeline(params: RunParams, layout: RunLayout,
 # ===========================================================================
 # helpers
 # ===========================================================================
+def _rlrp_tours(result, inst, scenario: int) -> List[Dict[str, Any]]:
+    """Walk the second-stage arc set into depot-to-depot tours.
+
+    The RLRP is a location-*routing* problem: its second stage already decides
+    the arcs, and each served store has exactly one incoming and one outgoing
+    arc, so the arc set decomposes into tours that start and end at a depot.
+    These are aggregate-demand tours, not the weekday routes PATT produces --
+    they show how the RLRP *costed* the assignment.
+    """
+    arcs = getattr(result, "arcs", {}).get(scenario)
+    if not arcs:
+        return []
+    loads = getattr(result, "arc_loads", {}).get(scenario, {})
+
+    # successors, skipping self-loops
+    out: Dict[Any, List[Any]] = {}
+    for i, j in arcs:
+        if i == j:
+            continue
+        out.setdefault(i, []).append(j)
+
+    tours: List[Dict[str, Any]] = []
+    used: set = set()
+    for depot in inst.depots:
+        for first in list(out.get(depot, [])):
+            if (depot, first) in used:
+                continue
+            path = [depot, first]
+            used.add((depot, first))
+            node = first
+            # follow the tour back to a depot; the guard is belt-and-braces
+            # against a fractional solution producing a broken chain
+            while node not in inst.depots and len(path) <= len(inst.stores) + 2:
+                nxt = next((c for c in out.get(node, []) if (node, c) not in used), None)
+                if nxt is None:
+                    break
+                used.add((node, nxt))
+                path.append(nxt)
+                node = nxt
+            if len(path) < 3:
+                continue
+            coords = [[inst.locations[n][0], inst.locations[n][1]] for n in path]
+            legs = [
+                float(inst.distances[(path[i], path[i + 1])])
+                for i in range(len(path) - 1)
+            ]
+            tours.append({
+                "depot_id": depot,
+                "stops": [int(n) for n in path],
+                "coords": coords,
+                "distance_km": sum(legs),
+                "n_stores": sum(1 for n in path if n > 0),
+                "departure_load_t": float(loads.get((depot, first), 0.0)),
+            })
+    return tours
+
+
 def _check_stop(layout: RunLayout) -> None:
     if layout.stop_requested():
         raise StopRequested()

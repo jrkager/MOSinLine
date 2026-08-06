@@ -89,6 +89,10 @@ Last observed (continuous world, `a577673`), waste PATT vs V2 per scenario:
 0.38 / 0.42, 1.72 / 1.84, 0.40 / 0.44 %; stockout 0.45 / 0.45, 0.50 / 0.43,
 0.45 / 0.43 %. A gap of more than ~0.2 pp means a handoff broke.
 
+The ALNS is **not seeded**, so the levels move between runs (a second observation
+of scenario 1 gave 0.50 / 0.50 % waste). Check the PATT-vs-V2 *gap*, not the
+absolute figures — those are indicative only.
+
 **Compare agreement, not levels, against any older note.** The absolute KPI
 levels have moved twice and by a lot: the integer-ordering change (`3cc93a6`)
 put scenario-1 waste at ~9 %, and the continuous-world change (`a577673`) took
@@ -173,6 +177,13 @@ values**. Paper-grade numbers need 500–2000.
 These are real, currently-true properties of the code — don't "fix" them silently,
 and don't be surprised by them.
 
+- **`rlrp/` has one small additive patch** (branch `webapp-with-model-results`):
+  `LRPReturnObject` gained `arcs` / `arc_loads`, populated in `algorithm.py` from
+  the `x` and `t` variables the second stage already solves. Before that the
+  routing the RLRP computes was discarded and only the assignment survived. This
+  is the one place the "don't touch `rlrp/`" rule was bent — there is no glue hook,
+  because the variables only exist inside `ourAlgorithm()`. `main.RLRPResult`
+  carries them on with `getattr`, so an older `rlrp/` still works.
 - **Use `run.py`, not `main.py`, to execute the pipeline.** `run.py` +
   `webtool/pipeline.py` is the parameterised implementation of the same loop,
   with the capacity feedback that actually works and artifacts on disk.

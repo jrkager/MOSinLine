@@ -29,7 +29,8 @@
 				title: 'produces',
 				lines: [
 					'<code>depot_sizes[scenario][depot]</code> — t/day',
-					'<code>customer_depot_assignment[scenario][depot]</code> — store ids'
+					'<code>customer_depot_assignment[scenario][depot]</code> — store ids',
+					'<code>arcs</code> / <code>arc_loads</code> — the second stage\'s own tours'
 				],
 				note: 'Sized just big enough for the averages: capacity costs money.'
 			}

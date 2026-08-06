@@ -119,6 +119,29 @@
 </div>
 
 <div class="card prose">
+	<h2>Two kinds of route</h2>
+	<p>
+		Both models route, and it is easy to mistake one for the other.
+	</p>
+	<p>
+		The RLRP is a location-<em>routing</em> problem: to price a candidate network it has to know
+		what serving it costs, so its second stage builds tours over the <strong>aggregate daily
+		demand</strong>. Those tours are visible on the <a href="/">RLRP screen</a> — they are why one
+		depot beat another, not a delivery plan anyone would execute.
+	</p>
+	<p>
+		PATT then routes for real, per weekday, over the stores that its chosen pattern actually
+		schedules that day. Those are the tours the simulation executes and the ones exported to
+		AnyLogic.
+	</p>
+	<div class="callout">
+		So a store appears once in the RLRP tour set and on two to six weekday routes in PATT. Comparing
+		the two distances directly is meaningless: one is a single aggregate loop, the other is a week of
+		real trips.
+	</div>
+</div>
+
+<div class="card prose">
 	<h2>The second loop: simulation feedback</h2>
 	<p>
 		PATT predicts what its own plan will achieve — waste, stockouts, emissions. The simulation then
