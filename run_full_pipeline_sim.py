@@ -56,9 +56,13 @@ def patt_predicted_row(a, solution):
                 km += d
                 tr_cost += ev.c_km * d + ev.c_fuel * fuel
                 tr_co2 += ev.theta_TR * fuel
+    deliv_cond = sum(solution.p_frt.get((f, solution.pattern_assignments[f], t), 0.0)
+                     for f in a.stores for t in range(6))
     return {
         "run": "PATT model",
-        "demand_u": round(dem),
+        "demand_u": round(dem, 2),
+        "delivered_u": dem - so + waste,        # conservation: demand - stockout + waste
+        "delivered_cond_u": deliv_cond,         # sum of p_frt (conditional mean; footnote only)
         "waste%": 100 * waste / dem if dem else 0,
         "wasteA%": None,
         "stockout%": 100 * so / dem if dem else 0,

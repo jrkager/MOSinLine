@@ -31,3 +31,6 @@ exports/
 web-app/node_modules/
 web-app/.svelte-kit/
 web-app/build/
+
+*.bak.py
+archive/

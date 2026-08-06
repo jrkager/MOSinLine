@@ -10,21 +10,21 @@ def run(folder, suffix, start_date="2025-03-03", warmup_days=14, weeks=52.0):
     for row in csv.reader(open(p("planned_demands")), delimiter=";"):
         if len(row) < 5 or float(row[0]) < cutoff_h:
             continue
-        demA += int(row[2]); demB += int(row[3]); demC += int(row[4])
+        demA += float(row[2]); demB += float(row[3]); demC += float(row[4])
 
     wA = wB = wC = 0; co2fw = 0.0
     r = csv.reader(open(p("WeeklyWasteReport")), delimiter=";"); next(r)
     for row in r:
         if not row or not row[0].isdigit() or int(row[0]) <= warmup_days // 7:
             continue
-        wA += int(row[4]); wB += int(row[5]); wC += int(row[6]); co2fw += float(row[7])
+        wA += float(row[4]); wB += float(row[5]); wC += float(row[6]); co2fw += float(row[7])
 
     lost = 0; locost = 0.0
     r = csv.reader(open(p("WeeklyStockoutReport")), delimiter=";"); next(r)
     for row in r:
         if not row or not row[0].isdigit() or int(row[0]) <= warmup_days // 7:
             continue
-        lost += int(row[3]); locost += float(row[7])
+        lost += float(row[3]); locost += float(row[7])
 
     km = fuel = co2g = 0.0; ntr = 0
     for row in csv.reader(open(p("trucks")), delimiter=";"):
