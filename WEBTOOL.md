@@ -530,7 +530,13 @@ fix the reproducibility problems already noted in `CLAUDE.md`.
    to S, so expired units are automatically re-ordered); that surplus grows as
    frequency drops. Hence the pre-check and the capacity edge. She also confirms
    the DPPP–simulation feedback loop is **still being written on her side**, so
-   our λ edge stays provisional and should be treated as replaceable. The
+   our λ edge stays provisional and should be treated as replaceable.
+   *Update (`a577673`, `ade079b`):* both shelf simulations moved to a continuous
+   world — no integer rounding, fluid FIFO/LIFO split with FIFO served first
+   under scarcity, batch shelves in the DES, `DROP_THRESHOLD` 5 → 2.0. The two
+   implementations must stay mirrored; the KPI levels this produces are an order
+   of magnitude lower than before, so the acceptance tolerances in §9.4 should be
+   revisited against continuous-world numbers rather than the old ones. The
    RLRP↔PATT edge already works for real in `run_pipeline_B.py` (capacity
    feedback, up to `MAX_ROUNDS = 6`) — that edge is demo-ready. The SIM→PATT
    λ edge is **not**: `is_good_enough()` is an empty stub. Minimum viable

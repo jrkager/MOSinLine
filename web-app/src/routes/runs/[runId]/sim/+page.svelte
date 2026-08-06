@@ -16,6 +16,8 @@
 	let loadError = $state<string | null>(null);
 
 	const COLUMNS = [
+		{ key: 'demand_u', label: 'Demand t/wk', fmt: (v: any) => num(v, 1) },
+		{ key: 'delivered_u', label: 'Delivered t/wk', fmt: (v: any) => num(v, 1) },
 		{ key: 'waste%', label: 'Waste %', fmt: (v: any) => pct(v) },
 		{ key: 'stockout%', label: 'Stockout %', fmt: (v: any) => pct(v) },
 		{ key: 'FW_CO2_kg/wk', label: 'FW CO₂ kg/wk', fmt: (v: any) => num(v, 0) },
@@ -122,7 +124,9 @@
 				<h2>Predicted vs simulated</h2>
 				<div class="card-sub">
 					{sim.weeks} weeks × {sim.runs_per_variant} replication(s), first {sim.warmup_weeks} weeks
-					warmup. Variant {refVariant} executes the plan as written — it should track the PATT row.
+					warmup. All figures are per week. Variant {refVariant} executes the plan as written — it
+					should track the PATT row. Delivered follows the conservation identity
+					<span class="mono">demand − stockout + waste</span>.
 				</div>
 			</div>
 			<div class="row">

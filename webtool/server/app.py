@@ -82,7 +82,10 @@ def api_list_runs() -> Dict[str, Any]:
         row["current_round"] = progress.get("current_round")
         row["current_stage"] = progress.get("current_stage")
         row["elapsed_sec"] = progress.get("elapsed_sec")
-        row["live_status"] = progress.get("status")
+        # The manifest wins once it is terminal: a killed pipeline can leave a
+        # stale "running" in progress.json, and the UI trusts live_status.
+        live = progress.get("status")
+        row["live_status"] = None if str(row.get("status")) in jobs.TERMINAL else live
     return {"updated_at": now_iso(), "runs": rows, "queue": jobs.queue_state()}
 
 

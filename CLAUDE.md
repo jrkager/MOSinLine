@@ -85,11 +85,17 @@ python run_full_pipeline_sim.py
 RLRP → PATT → Python DES port on `R101_10stores_i1`, comparing PATT's predicted
 KPIs against simulated Variants 2/1/3/4. ~2 min. **This is the integration
 regression test**: the "Variant 2" row must track the "PATT model" row closely.
-Last observed (after the integer-ordering fix in `3cc93a6`), waste PATT vs V2 per
-scenario: 9.26 / 9.32, 7.03 / 6.86, 5.29 / 5.27 %; stockout 6.85 / 7.09,
-5.14 / 5.00, 5.28 / 5.55 %. A gap of more than a few tenths of a pp means a
-handoff broke. Note these absolute levels moved when the ordering fix landed —
-compare agreement, not the levels, against older notes.
+Last observed (continuous world, `a577673`), waste PATT vs V2 per scenario:
+0.38 / 0.42, 1.72 / 1.84, 0.40 / 0.44 %; stockout 0.45 / 0.45, 0.50 / 0.43,
+0.45 / 0.43 %. A gap of more than ~0.2 pp means a handoff broke.
+
+**Compare agreement, not levels, against any older note.** The absolute KPI
+levels have moved twice and by a lot: the integer-ordering change (`3cc93a6`)
+put scenario-1 waste at ~9 %, and the continuous-world change (`a577673`) took
+it to ~0.4 %. Waste is far lower in the continuous model because a fluid drains
+the oldest batch smoothly instead of leaving whole units to expire. Any figure
+quoted from before these commits — in the report, in old sweep outputs — is
+inconsistent with the current code.
 
 ```bash
 python run_pipeline_B.py
@@ -203,8 +209,9 @@ and don't be surprised by them.
   when comparing results.
 - **Temp PATT instance files** (`temp-<instance>-<depot>-<scenario>-<hash>.json`)
   are written to the repo root and deleted by `delete_patt_instance_file()`. A
-  crash or interrupt mid-run leaves them behind (confirmed) — they are not
-  gitignored, so check `git status` after an aborted run.
+  crash or interrupt mid-run leaves them behind (confirmed) — stopping a run from
+  the web tool does it every time, since the pipeline is SIGTERMed. They are
+  gitignored now, but still worth sweeping occasionally.
 - **Old sweep outputs are not comparable** to current ones — parameters, θ_FW units,
   and variant definitions all changed (see README_SETUP "Known caveats").
 - `Instance.pattern_operational_costs` / `foodwaste_emissions_factor` are `None`
@@ -214,9 +221,17 @@ and don't be surprised by them.
 - **The ALNS builds its own (R,S) shelf simulation at construction time**
   (`ComprehensiveALNS.__init__`, `N_RUNS = 10` × 52 weeks × stores × patterns ×
   segments). That is where most of the PATT setup time goes, before a single
-  ALNS iteration runs. Delivered and order quantities are rounded to integer
-  units there so the prediction matches the DES port — do not "clean up" that
-  rounding, it is what keeps PATT and Variant 2 in agreement.
+  ALNS iteration runs.
+- **The (R,S) shelf model exists twice** — in `patt/alns.py` (to score patterns)
+  and in `sim_des_port.py` (to execute the plan) — and the two must stay
+  identical or the PATT-vs-Variant-2 comparison is meaningless. Since `a577673`
+  both are **continuous**: no integer rounding of delivered or order quantities,
+  no demand carry-over discretization, and consumption is a *fluid FIFO/LIFO
+  split* (`d_fifo = p_FIFO · demand`, remainder LIFO) with **the FIFO stream
+  served first** under scarcity. That tie-break is an arbitrary convention, so if
+  you touch it on one side you must touch the other. DES shelves are batch lists
+  `[[qty, expiry], …]`, not one entry per unit.
+  Useful invariant both sides report: `delivered = demand − stockout + waste`.
 
 ## Working style for this repo
 

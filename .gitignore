@@ -34,3 +34,7 @@ web-app/build/
 
 *.bak.py
 archive/
+
+# PATT instance files, normally deleted by delete_patt_instance_file();
+# an interrupted or stopped run leaves them in the repo root
+temp-*.json

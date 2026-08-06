@@ -325,6 +325,17 @@ def patt_artifact(a, solution, unit, lam, runtime, trajectory, log_name) -> Dict
         "routes_by_day": routes_by_day,
         "predicted": {
             "demand_t": demand,
+            "waste_t": waste,
+            "stockout_t": stockout,
+            # Conservation identity: what must have been delivered to satisfy
+            # this much demand given the waste and stockout the model predicts.
+            "delivered_t": demand - stockout + waste,
+            # Sum of p_frt: the conditional-mean delivery quantities the routes
+            # actually carry. Reported for cross-checking only.
+            "delivered_cond_t": sum(
+                float(solution.p_frt.get((f, solution.pattern_assignments[f], t), 0.0))
+                for f in a.stores for t in range(6)
+            ),
             "waste_pct": 100 * waste / demand if demand else 0.0,
             "stockout_pct": 100 * stockout / demand if demand else 0.0,
             "fw_co2_kg_per_week": fw_co2,
@@ -387,6 +398,15 @@ def run_sim(units: List[Dict[str, Any]], params: RunParams, rnd: int) -> Dict[st
                 if run_i == 0:
                     weekly[str(variant)] = _weekly_series(kpis)
             aggregated["variant"] = variant
+            # kpis_to_row reports demand_u as a total over the recorded weeks
+            # while every other column is per week -- and the PATT row is weekly.
+            # Normalise so the absolute columns are comparable across rows.
+            dem = float(aggregated.get("demand_u") or 0.0) / max(params.sim.weeks, 1)
+            aggregated["demand_u"] = dem
+            # same conservation identity as the PATT row
+            aggregated["delivered_u"] = dem * (
+                1.0 - float(aggregated["stockout%"]) / 100.0
+                + float(aggregated["waste%"]) / 100.0)
             rows.append(aggregated)
 
         per_unit.append({
@@ -415,6 +435,8 @@ def _patt_row(patt_art: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "run": "PATT model", "variant": None,
         "demand_u": p["demand_t"],
+        "delivered_u": p["delivered_t"],
+        "delivered_cond_u": p["delivered_cond_t"],
         "waste%": p["waste_pct"], "wasteA%": None,
         "stockout%": p["stockout_pct"],
         "FW_CO2_kg/wk": p["fw_co2_kg_per_week"],

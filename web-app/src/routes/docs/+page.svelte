@@ -74,10 +74,10 @@
 	</p>
 	<p>
 		That extra comes from perishability. Under the (R,S) inventory policy, every delivery refills
-		the store to its order-up-to level <span class="mono">S</span>, so any units that expired on the
-		shelf since the last visit are automatically re-ordered. Over time the delivered quantity
-		therefore equals <em>demand + expired units</em>. For a store visited five or six times a week
-		this surplus is negligible; as the delivery frequency drops it grows.
+		the store to its order-up-to level <span class="mono">S</span>, so anything that expired on the
+		shelf since the last visit is automatically re-ordered. Over time the delivered quantity
+		therefore equals <em>demand − stockout + waste</em>. For a store visited five or six times a
+		week this surplus is negligible; as the delivery frequency drops it grows.
 	</p>
 	<div class="callout">
 		The consequence: the tonnage that must actually leave the depot on a delivery day can exceed the
@@ -143,6 +143,40 @@
 </div>
 
 <div class="card prose">
+	<h2>One shelf model, implemented twice</h2>
+	<p>
+		PATT can only predict waste and stockouts if it simulates the shelf itself, so the (R,S)
+		policy exists <em>twice</em>: once inside PATT (to score candidate patterns) and once in the
+		DES (to execute the chosen plan). The two must agree, or the comparison that closes the loop
+		is meaningless — and every disagreement found so far has been a difference between these two
+		implementations rather than a modelling error in either.
+	</p>
+	<p>
+		Both now work in a <strong>continuous world</strong>: quantities are real-valued tonnes, with
+		no rounding to whole units on either side. Demand is drawn from a normal distribution and
+		consumed as a fluid on the day it arrives.
+	</p>
+	<p>
+		Consumer behaviour is a <strong>fluid FIFO/LIFO split</strong>: a share
+		<span class="mono">p_FIFO</span> of the day's demand drains from the oldest batch on the
+		shelf and the remainder from the newest. When there is not enough stock, the FIFO stream is
+		served first and the LIFO stream absorbs the shortfall. That tie-break is a convention, not a
+		consequence — it has to be mirrored exactly on both sides, and it is.
+	</p>
+	<div class="callout">
+		Shelves are held as batches of <span class="mono">[quantity, expiry day]</span> rather than one
+		entry per unit. Expiry applies to the fresh segment only; dry and frozen do not expire within
+		the planning horizon, so their waste is zero by construction.
+	</div>
+	<p class="faint">
+		A useful cross-check that both sides report:
+		<span class="mono">delivered = demand − stockout + waste</span>. It must hold on the PATT side
+		and in the simulation, and it is what catches a shelf model that is quietly losing or creating
+		volume.
+	</p>
+</div>
+
+<div class="card prose">
 	<h2>Conventions that silently break things</h2>
 	<p>
 		Most of the translation work between the three modules is bookkeeping, and most of the bugs
@@ -176,9 +210,11 @@
 					<td>Q = 25.6 t, W₀ = 14.4 t; θ_FW is kg CO₂e per tonne wasted</td>
 				</tr>
 				<tr>
-					<td>Delivery quantities</td>
-					<td class="mono">integer units</td>
-					<td>rounded inside PATT's own shelf simulation so it matches the DES</td>
+					<td>Quantities</td>
+					<td class="mono">continuous tonnes</td>
+					<td>
+						no rounding anywhere; both shelf simulations consume demand as a fluid
+					</td>
 				</tr>
 			</tbody>
 		</table>

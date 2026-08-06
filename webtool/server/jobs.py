@@ -7,14 +7,15 @@ views of the same thing.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..layout import (REPO_ROOT, RUNS_ROOT, RunLayout, new_run_id, now_iso,
-                      read_json, run_layout, write_json)
+from ..layout import (REPO_ROOT, RUNS_ROOT, RunLayout, list_runs, new_run_id,
+                      now_iso, read_json, run_layout, write_json)
 from ..params import RunParams
 
 TERMINAL = {"completed", "failed", "stopped", "infeasible"}
@@ -91,6 +92,30 @@ def _pump() -> None:
                                pid=process.pid)
 
 
+def _finalize_progress(layout: RunLayout, status: str, reason: str,
+                       *, force: bool = False) -> None:
+    """Stamp a terminal status into progress.json.
+
+    run.py normally does this itself, but a terminated or crashed process never
+    gets the chance, which would leave the UI showing a dead run as `running`
+    forever (it trusts the live status over the manifest). `force` overrides an
+    already-terminal status, for when the caller knows the intent better than
+    the exit code does."""
+    progress = read_json(layout.progress, None)
+    if not isinstance(progress, dict):
+        return
+    if not force and str(progress.get("status")) in TERMINAL:
+        return
+    progress["status"] = status
+    progress["finished_at"] = progress.get("finished_at") or now_iso()
+    progress["current_stage"] = None
+    progress["current_detail"] = None
+    result = progress.get("result")
+    progress["result"] = {**(result if isinstance(result, dict) else {}),
+                          "status": status, "reason": reason}
+    write_json(layout.progress, progress)
+
+
 def _reap() -> None:
     """Reconcile finished processes with the manifest. run.py writes the real
     status itself; this only catches crashes that never got that far."""
@@ -101,14 +126,47 @@ def _reap() -> None:
         layout = run_layout(run_id)
         manifest = layout.read_manifest()
         if str(manifest.get("status")) not in TERMINAL:
-            layout.update_manifest(
-                status="failed" if process.returncode else "completed",
-                reason=f"pipeline exited with code {process.returncode}",
-                finished_at=now_iso())
+            if process.returncode == 0:
+                status, reason = "completed", "pipeline exited cleanly"
+            elif layout.stop_requested():
+                # we asked it to stop; a non-zero code is the signal, not a fault
+                status, reason = "stopped", "stopped on request"
+            else:
+                status = "failed"
+                reason = f"pipeline exited with code {process.returncode}"
+            layout.update_manifest(status=status, reason=reason,
+                                   finished_at=now_iso())
+            _finalize_progress(layout, status, reason)
+
+
+def reconcile_orphans() -> None:
+    """Catch runs left marked active by a backend restart or an outright kill:
+    the manifest says running but nothing is tracking it and its pid is gone."""
+    for manifest in list_runs():
+        run_id = str(manifest.get("run_id") or "")
+        if not run_id or str(manifest.get("status")) in TERMINAL:
+            continue
+        if run_id in _processes or run_id in _queue:
+            continue
+        pid = manifest.get("pid")
+        if isinstance(pid, int):
+            try:
+                os.kill(pid, 0)
+                continue          # still alive, just not ours to supervise
+            except OSError:
+                pass
+        elif str(manifest.get("status")) == "queued":
+            continue              # never started; the queue will pick it up
+        layout = run_layout(run_id)
+        reason = "process is gone (backend restart or external kill)"
+        layout.update_manifest(status="failed", reason=reason,
+                               finished_at=now_iso())
+        _finalize_progress(layout, "failed", reason)
 
 
 def poll() -> None:
     """Called periodically by the app so the queue advances even when idle."""
+    reconcile_orphans()
     _pump()
 
 
@@ -132,8 +190,10 @@ def stop_run(run_id: str) -> Dict[str, Any]:
             process.kill()
     with _lock:
         _reap()
-    return layout.update_manifest(status="stopped", reason="stopped on request",
-                                  finished_at=now_iso())
+    manifest = layout.update_manifest(status="stopped", reason="stopped on request",
+                                      finished_at=now_iso())
+    _finalize_progress(layout, "stopped", "stopped on request", force=True)
+    return manifest
 
 
 def delete_run(run_id: str) -> None:

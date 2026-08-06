@@ -72,7 +72,7 @@
 					'<code>routes_by_day</code> as store-index lists',
 					'depot coordinates, execution variant 1–8'
 				],
-				note: 'Store ids shift once more: des_id = internal_id − 1.'
+				note: 'Store ids shift once more: des_id = internal_id − 1. Quantities stay continuous.'
 			},
 			output: {
 				title: 'produces',
@@ -103,7 +103,8 @@
 				'pattern + <code>p_frt</code> → per-day delivery flags',
 				'<code>S_fsr</code> → order-up-to level per product',
 				'segments renamed: fresh→A, dry→B, frozen→C',
-				'routes → lists of DES store indices'
+				'routes → lists of DES store indices',
+				'no rounding: quantities stay continuous tonnes'
 			]
 		}
 	];

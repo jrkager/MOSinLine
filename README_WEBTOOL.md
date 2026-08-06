@@ -107,7 +107,7 @@ lat/lon.
 | **Loop** | The cycle diagram. Active stage pulses, completed stages carry their headline result, unreached stages are ghosted, and the feedback edge that fired animates. Click an edge to see what data crosses it. The round timeline rewinds everything to an earlier round. |
 | **RLRP** | Which depots opened at what size per scenario, the store→depot assignment on the map, solve statistics. |
 | **PATT** | The delivery-pattern calendar (stores × Mon–Sat, shaded by tonnage), routes per weekday, predicted KPIs, ALNS convergence, operator performance. |
-| **SIM** | The predicted-vs-simulated KPI table (the headline validation result), the acceptance verdict, and the variant comparison. |
+| **SIM** | The predicted-vs-simulated KPI table (the headline validation result, including the `delivered = demand - stockout + waste` conservation check), the acceptance verdict, and the variant comparison. |
 | **How it works** | Standalone documentation page: an annotated protocol diagram (what each module consumes and produces, and the named transform between them) plus prose on why the RLRP and PATT disagree about demand, the capacity pre-check, the conventions, and the objective alignment. |
 
 ## Output on disk
