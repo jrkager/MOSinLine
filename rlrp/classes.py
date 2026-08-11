@@ -12,6 +12,12 @@ class LRPReturnObject:
     depot_sizes: Dict[int, Dict[int, float]] = field(default_factory=dict)
     # scenario -> depot_id -> list of store ids
     customer_depot_assignment: Dict[int, Dict[int, List[int]]] = field(default_factory=dict)
+    # scenario -> list of used arcs (i, j) from the second-stage x variables.
+    # Purely additive: the second stage already solves the routing, this just
+    # stops it being discarded so the arcs can be drawn.
+    arcs: Dict[int, List[tuple]] = field(default_factory=dict)
+    # scenario -> {(i, j): load carried on that arc}, from the t variables
+    arc_loads: Dict[int, Dict[tuple, float]] = field(default_factory=dict)
 
 
 class SecondStagePlaceholder:

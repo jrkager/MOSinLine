@@ -105,8 +105,8 @@ lat/lon.
 | Screen | Shows |
 |---|---|
 | **Loop** | The cycle diagram. Active stage pulses, completed stages carry their headline result, unreached stages are ghosted, and the feedback edge that fired animates. Click an edge to see what data crosses it. The round timeline rewinds everything to an earlier round. |
-| **RLRP** | Which depots opened at what size per scenario, the store→depot assignment on the map, solve statistics. |
-| **PATT** | The delivery-pattern calendar (stores × Mon–Sat, shaded by tonnage), routes per weekday, predicted KPIs, ALNS convergence, operator performance. |
+| **RLRP** | The network map: depot squares scaled by capacity built, filled when opened and dashed when closed; store dots scaled by demand and coloured by the depot serving them; store→depot assignment spokes; and the second stage's own aggregate-demand tours. Plus capacity-built-vs-demand-assigned bars, a per-depot table, and all scenarios side by side as small multiples. |
+| **PATT** | The delivery-pattern calendar (stores × Mon–Sat, with a 6-bit pattern ribbon, shaded by tonnage or stacked by segment), the delivery-frequency distribution, weekly tonnage per segment, load per weekday stacked by segment against vehicle capacity Q, the routes map per weekday with vehicle fill, all six days as small multiples, predicted KPIs, ALNS convergence and operator performance. |
 | **SIM** | The predicted-vs-simulated KPI table (the headline validation result, including the `delivered = demand - stockout + waste` conservation check), the acceptance verdict, and the variant comparison. |
 | **How it works** | Standalone documentation page: an annotated protocol diagram (what each module consumes and produces, and the named transform between them) plus prose on why the RLRP and PATT disagree about demand, the capacity pre-check, the conventions, and the objective alignment. |
 

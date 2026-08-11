@@ -67,9 +67,17 @@ class RLRPResult:
     # association of customers to warehouses per scenario
     customer_depot_assignment: Dict[int, Dict[Depot, List[Store]]] # dict of scenario to dict of store_id to depot_id. if a store is not assigned to any warehouse in a scenario, it will not appear in the dict for this scenario or its assigned depot_id will be None or -1.
 
+    # the second stage's routing decision: scenario -> [(i, j), ...] and the load
+    # carried on each used arc. Aggregate-demand tours, not PATT's weekday routes.
+    arcs: Dict[int, List[Tuple[Node, Node]]]
+    arc_loads: Dict[int, Dict[Tuple[Node, Node], float]]
+
     def __init__(self, ret:rlrp_classes.LRPReturnObject, s:rlrp_classes.AlgorithmStats=None):
         self.depot_sizes = ret.depot_sizes
         self.customer_depot_assignment = ret.customer_depot_assignment
+        # getattr keeps this working against an older rlrp/ that does not report arcs
+        self.arcs = getattr(ret, "arcs", {}) or {}
+        self.arc_loads = getattr(ret, "arc_loads", {}) or {}
 
     def __hash__(self):
         return hash(str(self.depot_sizes)+"CONCAT"+str(self.customer_depot_assignment))
