@@ -7,6 +7,7 @@ views of the same thing.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from typing import Any, Dict, List, Optional
 from ..layout import (REPO_ROOT, RUNS_ROOT, RunLayout, list_runs, new_run_id,
                       now_iso, read_json, run_layout, write_json)
 from ..params import RunParams
+from .. import logfilter
 
 TERMINAL = {"completed", "failed", "stopped", "infeasible"}
 
@@ -66,6 +68,32 @@ def _sanitize(name: str) -> str:
 # ---------------------------------------------------------------------------
 # the queue
 # ---------------------------------------------------------------------------
+def _drain_log(process: subprocess.Popen, log_path: Path) -> None:
+    """Copy the pipeline's output to its log file, dropping solver boilerplate.
+
+    Runs on its own daemon thread for the life of the process; reading the pipe
+    also keeps the child from blocking once the OS buffer fills.
+    """
+    previous_blank = False
+    try:
+        with open(log_path, "w", buffering=1) as handle:
+            for line in process.stdout or ():
+                if logfilter.is_noise(line):
+                    continue
+                blank = not line.strip()
+                if blank and previous_blank:
+                    continue
+                previous_blank = blank
+                handle.write(line)
+    except (OSError, ValueError):
+        # the process was killed mid-write, or the pipe closed under us
+        pass
+    finally:
+        if process.stdout:
+            with contextlib.suppress(Exception):
+                process.stdout.close()
+
+
 def _pump() -> None:
     """Start the next queued run if nothing is currently active."""
     with _lock:
@@ -78,15 +106,18 @@ def _pump() -> None:
         cmd = [sys.executable, str(REPO_ROOT / "run.py"), "run",
                "--run-name", run_id,
                "--params", str(layout.root / "params.json")]
-        handle = open(log_path, "w", buffering=1)
         try:
             process = subprocess.Popen(
-                cmd, cwd=str(REPO_ROOT), stdout=handle,
-                stderr=subprocess.STDOUT, text=True)
+                cmd, cwd=str(REPO_ROOT), stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, text=True, bufsize=1)
         except OSError as exc:
-            handle.close()
             layout.update_manifest(status="failed", reason=str(exc))
             return
+        # Gurobi's banner and "Set parameter" echoes reach stdout from the C
+        # library, so they can only be stripped out here, between the pipe and
+        # the file.
+        threading.Thread(target=_drain_log, args=(process, log_path),
+                         name=f"log-{run_id}", daemon=True).start()
         _processes[run_id] = process
         layout.update_manifest(status="running", started_at=now_iso(),
                                pid=process.pid)

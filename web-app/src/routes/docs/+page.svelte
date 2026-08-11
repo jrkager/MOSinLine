@@ -33,7 +33,9 @@
 		<li>
 			<strong>SIM</strong> answers the <em>operational</em> question: if we actually execute that
 			plan for a year, with random demand and real-world execution rules, what happens? It is a
-			discrete-event simulation.
+			discrete-event simulation, and the one this tool runs is
+			<span class="mono">sim_des_port.py</span> — a Python re-implementation that runs in-process.
+			<strong>AnyLogic is not required and is never invoked.</strong>
 		</li>
 	</ul>
 	<p>
@@ -278,6 +280,13 @@
 		pipeline can export the patterns and routes as CSVs for the AnyLogic simulation model, which is
 		the higher-fidelity counterpart of the Python DES used inside the loop.
 	</p>
+	<div class="callout">
+		<strong>The loop never touches AnyLogic.</strong> Everything on the SIM screen comes from
+		<span class="mono">sim_des_port.py</span>, which imports nothing beyond numpy and runs in the
+		same process as the rest of the pipeline. AnyLogic is a separate, manual step: export the CSVs,
+		open the <span class="mono">.alp</span> yourself, and point it at the folder. You do not need it
+		installed to run this tool.
+	</div>
 	<p class="faint">
 		That export exists in the codebase (<span class="mono">export_anylogic_csv.py</span>,
 		<span class="mono">export_for_anylogic.py</span>) but is not yet wired into this web tool — see

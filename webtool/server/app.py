@@ -22,6 +22,7 @@ from ..layout import (EXPORT_ROOT, RUNS_ROOT, list_runs, now_iso, read_json,
                       resolve_export_path, run_layout)
 from ..params import RunParams
 from .. import instances
+from .. import logfilter
 from . import jobs
 
 POLL_SECONDS = 2.0
@@ -222,8 +223,12 @@ def api_run_log(run_id: str, name: str = "pipeline.log",
     path = layout.logs / Path(name).name
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"log not found: {name}")
-    lines = path.read_text(errors="replace").splitlines()
-    return {"name": name, "total_lines": len(lines), "lines": lines[-tail:]}
+    raw = path.read_text(errors="replace").splitlines()
+    # also filtered on read, so per-stage logs and any log written before the
+    # filter existed come back clean too
+    lines = list(logfilter.filter_lines(raw))
+    return {"name": name, "total_lines": len(lines),
+            "filtered_lines": len(raw) - len(lines), "lines": lines[-tail:]}
 
 
 @app.get("/api/runs/{run_id}/logs")

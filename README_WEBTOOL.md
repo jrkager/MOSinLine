@@ -24,6 +24,9 @@ database.
 
 - Python 3.10+, a working **Gurobi** license (a restricted/trial license only
   covers instances up to roughly 5 stores)
+- **AnyLogic is not required.** The SIM stage inside the loop is
+  `sim_des_port.py`, a Python re-implementation that runs in-process. The
+  AnyLogic model is a separate, manual path (export CSVs, open the `.alp`).
 - `pip install fastapi "uvicorn[standard]" numpy pandas scikit-learn scipy gurobipy`
 - Node 20+ and pnpm 9+ (frontend only)
 

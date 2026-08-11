@@ -65,7 +65,7 @@
 			key: 'sim',
 			title: 'SIM',
 			sub: 'Discrete-Event Simulation',
-			who: 'Python DES port · AnyLogic model',
+			who: 'Python DES port — runs in-process, no AnyLogic needed',
 			input: {
 				title: 'consumes',
 				lines: [
