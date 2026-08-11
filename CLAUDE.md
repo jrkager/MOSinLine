@@ -47,6 +47,7 @@ translation code in `main.py` / the `run_*.py` drivers over editing `rlrp/` or
 | `run.py`, `webtool/` | Web-tool layer: parameterised pipeline CLI, run-scoped artifact tree, progress model, FastAPI backend (`webtool/server/`). See [README_WEBTOOL.md](README_WEBTOOL.md) and [WEBTOOL.md](WEBTOOL.md). |
 | `web-app/` | SvelteKit frontend (the loop view). |
 | `schemas/`, `sample_instance_payload.json` | Instance payload format for the web tool. |
+| `webtool/instances.py` | Saved instances and the visual builder. Edits a small document (one mean daily demand per store + instance-wide shares/weekday shape/scenario factors) and expands it into the payload; presets round-trip through it, losing only the per-store demand noise. |
 | `logs/`, `results*/`, `out/`, `exports/` | Run artifacts; gitignored. |
 
 ## Setup
@@ -256,3 +257,7 @@ and don't be surprised by them.
 - The web tool renders only from the JSON artifact tree under
   `exports/runs/<id>/frontend/`. To add a screen, emit a new artifact in
   `webtool/pipeline.py` — no backend endpoint is needed.
+- Instances built in the UI land in `exports/instances/` as a pair: the editable
+  `<name>.builder.json` and the expanded `<name>.json` the pipeline reads. Only
+  the second is an input to `run.py`; regenerate it by saving again, never edit
+  it by hand.

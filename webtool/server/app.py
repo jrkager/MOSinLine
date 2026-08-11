@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from ..layout import (EXPORT_ROOT, RUNS_ROOT, list_runs, now_iso, read_json,
                       resolve_export_path, run_layout)
 from ..params import RunParams
+from .. import instances
 from . import jobs
 
 POLL_SECONDS = 2.0
@@ -69,6 +70,80 @@ def defaults() -> Dict[str, Any]:
     """Default parameters, so the run form can be built from the backend's
     truth rather than a duplicated copy in the frontend."""
     return RunParams().to_dict()
+
+
+# ---------------------------------------------------------------------------
+# instances (the visual builder)
+# ---------------------------------------------------------------------------
+@app.get("/api/instances")
+def api_list_instances() -> Dict[str, Any]:
+    return {"updated_at": now_iso(), "instances": instances.list_instances(),
+            "presets": instances.PRESETS}
+
+
+@app.get("/api/instances/new")
+def api_new_instance() -> Dict[str, Any]:
+    """A blank builder document, with the model's default shares and shape."""
+    return {"builder": instances.empty_builder(),
+            "suggested_name": instances.new_instance_name()}
+
+
+@app.get("/api/instances/preset")
+def api_instance_preset(kind: str = Query(...), stores: int = Query(10, ge=1, le=100),
+                        index: int = Query(1, ge=1, le=20)) -> Dict[str, Any]:
+    """Load a predefined instance into an editable document (not saved)."""
+    try:
+        doc = instances.builder_from_preset(kind, k=stores, i=index)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:                       # noqa: BLE001 - surfaced to the UI
+        raise HTTPException(status_code=500,
+                            detail=f"could not build preset: {exc}") from exc
+    return {"builder": doc, "suggested_name": instances.new_instance_name()}
+
+
+@app.post("/api/instances/summary")
+def api_instance_summary(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Live totals and feasibility warnings for the document being edited."""
+    doc = payload.get("builder") if isinstance(payload, dict) else None
+    if not isinstance(doc, dict):
+        raise HTTPException(status_code=400, detail="body must be {builder: {...}}")
+    return {"summary": instances.builder_summary(doc),
+            "problems": instances.validate_builder(doc)}
+
+
+@app.post("/api/instances")
+def api_save_instance(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    doc = payload.get("builder") if isinstance(payload, dict) else None
+    if not isinstance(doc, dict):
+        raise HTTPException(status_code=400, detail="body must be {builder: {...}}")
+    try:
+        row = instances.save_instance(doc, name=payload.get("name"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"updated_at": now_iso(), "instance": row}
+
+
+@app.get("/api/instances/{name}")
+def api_get_instance(name: str) -> Dict[str, Any]:
+    try:
+        return {"builder": instances.load_builder(name),
+                "instance": instances.describe(name)}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"instance not found: {name}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/instances/{name}")
+def api_delete_instance(name: str) -> Dict[str, Any]:
+    try:
+        instances.delete_instance(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"instance not found: {name}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"updated_at": now_iso(), "deleted": name}
 
 
 # ---------------------------------------------------------------------------

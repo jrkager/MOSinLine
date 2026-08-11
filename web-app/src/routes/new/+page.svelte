@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { api } from '$lib/api';
+	import { shortTime } from '$lib/format';
 
 	let defaults = $state<any>(null);
 	let params = $state<any>(null);
@@ -9,17 +11,53 @@
 	let advanced = $state(false);
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
+	let saved = $state<any[]>([]);
+	/** name of the saved instance selected in the "built" source */
+	let savedName = $state('');
 
 	const VARIANT_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8];
+
+	async function refreshSaved() {
+		try {
+			saved = (await api.listInstances()).instances ?? [];
+		} catch {
+			saved = [];
+		}
+	}
 
 	onMount(async () => {
 		try {
 			defaults = await api.defaults();
 			params = structuredClone($state.snapshot(defaults));
+			await refreshSaved();
+			// coming back from the builder: preselect what was just saved
+			const justSaved = page.url.searchParams.get('instance');
+			if (justSaved && saved.some((s) => s.name === justSaved)) {
+				params.instance.kind = 'payload';
+				savedName = justSaved;
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
 	});
+
+	/** keep payload_path in step with the selected saved instance */
+	$effect(() => {
+		if (!params || params.instance.kind !== 'payload') return;
+		const row = saved.find((s) => s.name === savedName);
+		if (row) params.instance.payload_path = row.payload_path;
+	});
+
+	async function removeSaved(name: string) {
+		if (!confirm(`Delete instance "${name}"?`)) return;
+		try {
+			await api.deleteInstance(name);
+			if (savedName === name) savedName = '';
+			await refreshSaved();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
 
 	function toggleVariant(v: number) {
 		const list: number[] = params.sim.variants;
@@ -43,6 +81,10 @@
 	}
 
 	async function submit() {
+		if (params.instance.kind === 'payload' && !savedName) {
+			error = 'Pick a saved instance, or build one in the instance builder.';
+			return;
+		}
 		submitting = true;
 		error = null;
 		try {
@@ -78,14 +120,17 @@
 	{#if !params}
 		<div class="empty">loading defaults…</div>
 	{:else}
-		<h3>Instance</h3>
-		<div class="form-grid" style="margin: 8px 0 18px">
+		<div class="row" style="justify-content: space-between; align-items: flex-end">
+			<h3>Instance</h3>
+			<a class="btn" href="/builder">Instance builder →</a>
+		</div>
+		<div class="form-grid" style="margin: 8px 0 8px">
 			<label class="field">
 				Source
 				<select bind:value={params.instance.kind}>
-					<option value="r101">Solomon R101</option>
+					<option value="r101">Solomon R101 (predefined)</option>
 					<option value="synthetic">Synthetic (5 stores)</option>
-					<option value="payload">Uploaded payload</option>
+					<option value="payload">Built / saved instance</option>
 				</select>
 			</label>
 			{#if params.instance.kind === 'r101'}
@@ -100,8 +145,15 @@
 			{/if}
 			{#if params.instance.kind === 'payload'}
 				<label class="field" style="grid-column: span 2">
-					Payload path (on the server)
-					<input type="text" bind:value={params.instance.payload_path} placeholder="instances/my.json" />
+					Saved instance
+					<select bind:value={savedName}>
+						<option value="">— select —</option>
+						{#each saved as row (row.name)}
+							<option value={row.name}>
+								{row.name} · {row.n_stores} stores, {row.n_depots} sites
+							</option>
+						{/each}
+					</select>
 				</label>
 			{/if}
 			<label class="field">
@@ -109,6 +161,53 @@
 				<input type="text" bind:value={runName} placeholder="auto-generated" />
 			</label>
 		</div>
+
+		{#if params.instance.kind === 'payload'}
+			{#if saved.length === 0}
+				<div class="empty" style="margin-bottom: 12px">
+					No saved instances yet. Use the
+					<a href="/builder" style="text-decoration:underline">instance builder</a> to draw one, or
+					load a predefined set there and edit it.
+				</div>
+			{:else}
+				<div class="table-wrap" style="margin-bottom: 12px">
+					<table>
+						<thead>
+							<tr>
+								<th>Instance</th><th>Stores</th><th>Sites</th><th>Scenarios</th>
+								<th>Saved</th><th>Built from</th><th></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each saved as row (row.name)}
+								<tr class:highlight={savedName === row.name}>
+									<td>
+										<button class="link" onclick={() => (savedName = row.name)}>{row.name}</button>
+									</td>
+									<td>{row.n_stores}</td>
+									<td>{row.n_depots}</td>
+									<td>{row.n_scenarios}</td>
+									<td class="faint">{shortTime(row.saved_at)}</td>
+									<td class="faint">{row.source ?? '—'}</td>
+									<td>
+										<a class="btn small" href="/builder?edit={encodeURIComponent(row.name)}">Edit</a>
+										<button class="danger small" onclick={() => removeSaved(row.name)}>Delete</button>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+				{#each saved.filter((r) => r.name === savedName && r.warnings?.length) as row (row.name)}
+					<div class="warn-banner" style="margin-bottom:12px">
+						<strong>{row.name} has feasibility warnings:</strong>
+						<ul style="margin:4px 0 0 16px">
+							{#each row.warnings as w}<li>{w}</li>{/each}
+						</ul>
+					</div>
+				{/each}
+			{/if}
+		{/if}
 
 		<h3>Objective &amp; loop</h3>
 		<div class="form-grid" style="margin: 8px 0 4px">

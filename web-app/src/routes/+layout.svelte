@@ -42,6 +42,9 @@
 			<div class="nav-label">Pipeline</div>
 			<a class="nav-item" class:active={page.url.pathname === '/'} href="/">Overview</a>
 			<a class="nav-item" class:active={page.url.pathname === '/new'} href="/new">New run</a>
+			<a class="nav-item" class:active={page.url.pathname === '/builder'} href="/builder">
+				Instance builder
+			</a>
 			<a class="nav-item" class:active={page.url.pathname === '/docs'} href="/docs">How it works</a>
 		</div>
 

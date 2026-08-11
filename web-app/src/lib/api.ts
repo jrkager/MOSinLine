@@ -35,6 +35,24 @@ export const api = {
 		json<any>(`/api/runs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 	log: (id: string, name = 'pipeline.log', tail = 300) =>
 		json<any>(`/api/runs/${encodeURIComponent(id)}/log?name=${encodeURIComponent(name)}&tail=${tail}`),
+
+	// --- saved instances / the visual builder ---
+	listInstances: () => json<any>('/api/instances'),
+	newInstance: () => json<any>('/api/instances/new'),
+	instancePreset: (kind: string, stores: number, index: number) =>
+		json<any>(
+			`/api/instances/preset?kind=${encodeURIComponent(kind)}&stores=${stores}&index=${index}`
+		),
+	instanceSummary: (builder: unknown) =>
+		json<any>('/api/instances/summary', { method: 'POST', body: JSON.stringify({ builder }) }),
+	saveInstance: (builder: unknown, name?: string) =>
+		json<any>('/api/instances', {
+			method: 'POST',
+			body: JSON.stringify({ builder, name })
+		}),
+	getInstance: (name: string) => json<any>(`/api/instances/${encodeURIComponent(name)}`),
+	deleteInstance: (name: string) =>
+		json<any>(`/api/instances/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 	/** Any file from the artifact tree, addressed by its contract path. */
 	artifact: <T = any>(path: string) =>
 		json<T>(`/api/artifact?path=${encodeURIComponent(path)}`)

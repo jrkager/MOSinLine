@@ -471,3 +471,34 @@ pre.log {
 	color: var(--text);
 	font-weight: 600;
 }
+
+button.small,
+.btn.small {
+	padding: 3px 9px;
+	font-size: 0.76rem;
+}
+
+button.link {
+	border: none;
+	background: none;
+	padding: 0;
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+button.link:hover {
+	background: none;
+	color: var(--rlrp);
+}
+
+.warn-banner {
+	border: 1px solid color-mix(in srgb, var(--feedback) 55%, transparent);
+	background: color-mix(in srgb, var(--feedback) 10%, transparent);
+	color: var(--text);
+	padding: 9px 13px;
+	border-radius: 8px;
+	font-size: 0.84rem;
+}

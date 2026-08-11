@@ -83,7 +83,36 @@ Three sources, all selectable in the new-run form:
 |---|---|
 | `r101` | `k` stores sampled from Solomon R101, instance index `i` (1–20), deterministic |
 | `synthetic` | the 5-store instance from `main.construct_test_instance()` |
-| `payload` | an uploaded JSON file |
+| `payload` | a JSON payload — either drawn in the **instance builder** or written by hand |
+
+### The instance builder
+
+`/builder` is a visual editor for the input data. Place stores and depot
+candidates by clicking the canvas, drag them to move, and edit the selected
+node's coordinates, demand or capacity in the side panel. You can also load a
+predefined set (Solomon R101 with any `k`/`i`, or the synthetic instance) and
+modify it. **Save and back** stores the instance under a timestamp name and
+returns to the new-run form with it selected.
+
+It edits a deliberately small document rather than the full payload: one *mean
+daily demand* per store, plus instance-wide segment shares, weekday multipliers
+and per-scenario factors. Expanding those into the 54 numbers per store that the
+payload needs is what `webtool/instances.py` does, and it is the same composition
+`r101_segment_instance.py` uses. The consequence worth knowing: loading a preset
+averages away its per-store demand noise, because that noise is not
+representable in this model.
+
+Each saved instance writes two files:
+
+```
+exports/instances/<name>.builder.json   the editable document
+exports/instances/<name>.json           the expanded payload the pipeline reads
+```
+
+The editor validates continuously and refuses to save an invalid document. It
+also warns — without blocking — when a store's peak-day demand exceeds one
+vehicle, or when peak demand exceeds every depot candidate's capacity combined,
+since both make the instance unservable in ways that only surface much later.
 
 The payload format is documented by
 [`schemas/instance-payload.schema.json`](schemas/instance-payload.schema.json),
@@ -108,11 +137,15 @@ lat/lon.
 | **RLRP** | The network map: depot squares scaled by capacity built, filled when opened and dashed when closed; store dots scaled by demand and coloured by the depot serving them; store→depot assignment spokes; and the second stage's own aggregate-demand tours. Plus capacity-built-vs-demand-assigned bars, a per-depot table, and all scenarios side by side as small multiples. |
 | **PATT** | The delivery-pattern calendar (stores × Mon–Sat, with a 6-bit pattern ribbon, shaded by tonnage or stacked by segment), the delivery-frequency distribution, weekly tonnage per segment, load per weekday stacked by segment against vehicle capacity Q, the routes map per weekday with vehicle fill, all six days as small multiples, predicted KPIs, ALNS convergence and operator performance. |
 | **SIM** | The predicted-vs-simulated KPI table (the headline validation result, including the `delivered = demand - stockout + waste` conservation check), the acceptance verdict, and the variant comparison. |
+| **Instance builder** | Visual editor for the input data: place and drag stores and depot candidates, edit demand, capacity and costs, tune the segment shares, weekday shape and scenario factors, or load a predefined set and modify it. Saves under a timestamp name. |
 | **How it works** | Standalone documentation page: an annotated protocol diagram (what each module consumes and produces, and the named transform between them) plus prose on why the RLRP and PATT disagree about demand, the capacity pre-check, the conventions, and the objective alignment. |
 
 ## Output on disk
 
 ```
+exports/instances/<name>.builder.json    editable builder document
+exports/instances/<name>.json            expanded payload the pipeline reads
+
 exports/runs/<run-id>/
   manifest.json          status, parameters, timings
   params.json            the exact resolved parameters (replayable)
@@ -150,5 +183,6 @@ decision that still needs sign-off — see WEBTOOL.md §9.4. They are exposed un
 ## Not built yet
 
 Deliberately out of scope for this demo (WEBTOOL.md §0): run comparison and λ
-sweeps, AnyLogic CSV export from the UI, uploading a payload through the browser
-(the path is entered server-side), authentication, and remote/SSH execution.
+sweeps, AnyLogic CSV export from the UI, uploading a payload file through the
+browser (the builder covers creating one), authentication, and remote/SSH
+execution.
