@@ -35,6 +35,7 @@ MAX_ROUNDS = 6
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR    = os.path.join(_HERE, "anylogic_csv")
 ITERS      = 150            # shakedown; set 500 for production runs
+DEMAND_CV  = 0.55           # demand noise; MUST equal demandCV in AnyLogic
 K, I       = 20, 1
 STATE_FILE = os.path.join(_HERE, "buffer_state.json")
 RLRP_CACHE = os.path.join(_HERE, "logs", "rlrpC_cache.pkl")
@@ -43,7 +44,8 @@ RLRP_CACHE = os.path.join(_HERE, "logs", "rlrpC_cache.pkl")
 def depot_check(inst, rlrp, depot_id, s):
     fname = M.create_patt_instance_data(inst, rlrp, depot_id=depot_id, scenario=s)
     idata = alns.load_instance(fname)
-    a = alns.ComprehensiveALNS(idata, alns.default_algorithm_params())
+    ap = alns.default_algorithm_params(); ap['demand_cv'] = DEMAND_CV
+    a = alns.ComprehensiveALNS(idata, ap)
     M.delete_patt_instance_file(fname)
     cap = rlrp.depot_sizes[s].get(depot_id, 0.0)
     avg_dem = sum(idata["daily_demands"])
@@ -144,7 +146,8 @@ def run():
             idata = alns.load_instance(fname)
             M.delete_patt_instance_file(fname)
             idata["truck_buffer"] = b
-            a = alns.ComprehensiveALNS(idata, alns.default_algorithm_params())
+            ap = alns.default_algorithm_params(); ap['demand_cv'] = DEMAND_CV
+            a = alns.ComprehensiveALNS(idata, ap)
             sol = a.run_alns(max_iterations=ITERS, time_limit=3600)
             # ---- HARD capacity repair at Q_plan ----
             # Some operator paths can leave a route above the planning ceiling
