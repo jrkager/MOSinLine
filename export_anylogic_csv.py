@@ -12,7 +12,7 @@ _spec = importlib.util.spec_from_file_location("alns_seg", _path)
 alns_mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(alns_mod)
 
-SEG_ORDER = ["fresh", "dry", "frozen"]   # -> DES products A, B, C
+SEG_ORDER = ["fresh", "dry", "fnv"]      # -> DES products A, B, C
 
 
 def export_anylogic_csv(alns, solution, instance_data, name, out_dir="."):
@@ -43,8 +43,8 @@ def export_anylogic_csv(alns, solution, instance_data, name, out_dir="."):
                       int(math.ceil(S["fresh"]))]
                    + pdq
                    + [round(v, 4) for v in mu["dry"]]
-                   + [round(v, 4) for v in mu["frozen"]]
-                   + [round(S["dry"], 4), round(S["frozen"], 4)])
+                   + [round(v, 4) for v in mu["fnv"]]
+                   + [round(S["dry"], 4), round(S["fnv"], 4)])
             w.writerow(row)
 
     # ---- routes csv ----

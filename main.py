@@ -36,15 +36,25 @@ Node: TypeAlias = int
 # ============================================================
 TRANSPORT_PARAMS = {
     "c_km": 1.12, "c_fuel": 1.80, "eta": 0.05, "theta_TR": 2.7,
-    "W0": 14.4, "Q": 25.6, "lam": 0.3,
+    "W0": 14.4, "Q": 25.6,
+    # Monetised objective (replaces the old lambda scalarization):
+    #   objective = alpha * economic[EUR] + beta * c_co2 * emissions[kg CO2]
+    # c_co2 in EUR per kg CO2. Main: 0.350 (UBA Methodenkonvention 4.0 (2026),
+    # climate damage cost 350 EUR2025/t for 2026 emissions, 1% PRTP);
+    # sensitivity lower bound: 0.065 (nEHS/BEHG 2026 corridor).
+    "c_co2": 0.350, "alpha": 1.0, "beta": 1.0,
 }
 
 def derived_transport_coefficients(p=TRANSPORT_PARAMS):
-    lam = p["lam"]
+    # RLRP arc coefficients fold the monetised weights so that the RLRP
+    # transport objective stays an exact scalar match of the PATT objective:
+    #   per arc: alpha*(c_km*d + c_fuel*fuel) + beta*c_co2*theta_TR*fuel
+    a = p["alpha"]
+    bc = p["beta"] * p["c_co2"]
     return {
-        "c_coef":     (1 - lam) * p["c_km"],
-        "alpha_coef": (1 - lam) * p["c_fuel"] * p["eta"] * p["W0"] + lam * p["eta"] * p["theta_TR"] * p["W0"],
-        "gamma_coef": (1 - lam) * p["c_fuel"] * p["eta"]           + lam * p["eta"] * p["theta_TR"],
+        "c_coef":     a * p["c_km"],
+        "alpha_coef": a * p["c_fuel"] * p["eta"] * p["W0"] + bc * p["eta"] * p["theta_TR"] * p["W0"],
+        "gamma_coef": a * p["c_fuel"] * p["eta"]           + bc * p["eta"] * p["theta_TR"],
         "marginal_co2_emissions": p["eta"] * p["theta_TR"],
     }
 
@@ -105,7 +115,7 @@ class Weekday(Enum):
 class ProductClass(Enum):
     DRY = 0
     FRESH = 1
-    FROZEN = 2
+    FNV = 2    # fruits & vegetables (formerly FROZEN)
 
 @dataclass
 class PATTResult:
@@ -289,11 +299,13 @@ def create_patt_instance_data(instance: Instance, RLRP_result: RLRPResult, depot
     json_dict["distances"] = reduce_depots(instance.distances)
     json_dict["vehicle_capacity"] = instance.vehicle_capacity
     json_dict["vehicle_empty_weight"] = instance.vehicle_empty_weight
-    json_dict["cost_per_km"] = TRANSPORT_PARAMS["c_km"]      # UNWEIGHTED — PATT applies lambda itself
+    json_dict["cost_per_km"] = TRANSPORT_PARAMS["c_km"]      # UNWEIGHTED — PATT applies alpha/beta*c_co2 itself
     json_dict["fuel_price"] = TRANSPORT_PARAMS["c_fuel"]
     json_dict["eta"] = TRANSPORT_PARAMS["eta"]
     json_dict["marginal_co2_emissions"] = instance.marginal_co2_emissions
-    json_dict["weighting_factor_patt"] = instance.weighting_factor_patt
+    json_dict["c_co2_per_tonne"] = TRANSPORT_PARAMS["c_co2"] * 1000.0
+    json_dict["obj_alpha"] = TRANSPORT_PARAMS["alpha"]
+    json_dict["obj_beta"] = TRANSPORT_PARAMS["beta"]
     json_dict["Q_day_max"] = RLRP_result.depot_sizes[scenario].get(depot_id, 99999)
     json_dict["demand_by_segment"] = _export_demand_by_segment(instance, scenario, depot_stores)
 
@@ -343,7 +355,7 @@ def construct_test_instance() -> Instance:
     foodwaste_emissions_factor = None
 
     # warehouse cost params (choose simple, consistent values)
-    _oml = 1.0 - TRANSPORT_PARAMS["lam"]   # warehouse costs are economic -> pre-scale by (1-lambda)
+    _oml = TRANSPORT_PARAMS["alpha"]   # warehouse costs are economic -> pre-scale by alpha
     fixed_warehouse_costs = {d: _oml * 8_000.0 for d in depots}     # weekly-equivalent fixed cost
     marginal_warehouse_costs = {d: _oml * 50.0 for d in depots}
     max_warehouse_size = {-1: 30.0, -2: 30.0, -3: 30.0}
@@ -371,7 +383,7 @@ def construct_test_instance() -> Instance:
         max_warehouse_size=max_warehouse_size,
         second_stage_penalty_factor=1.5,
 
-        weighting_factor_patt=TRANSPORT_PARAMS["lam"],
+        weighting_factor_patt=0.0,   # DEPRECATED: PATT now reads c_co2_per_tonne / obj_alpha / obj_beta
         weighting_factor_rlrp=0.5,
 
         number_of_realizations=10,
@@ -448,7 +460,9 @@ def modify_instance_after_patt_infeasible(inst:Instance, rlrp_result: RLRPResult
             inst.demands[sc][key] *= 1.1 # increase demand by 10%
 
 def modify_weights_after_sim_infeasible(patt_instance, patt_result_per_scenario, sim_result, sim_failures):
-    patt_instance.weighting_factor_patt *= 0.9 # modify the weighting. Todo: this has to be changed (increased or decreased) depending on the result of the SIM!
+    # DEPRECATED demo stub. With the monetised objective the feedback knob is
+    # TRANSPORT_PARAMS["beta"] (carbon-cost weight), not weighting_factor_patt.
+    TRANSPORT_PARAMS["beta"] *= 1.1  # placeholder direction; real logic depends on SIM result
 
 
 def main():

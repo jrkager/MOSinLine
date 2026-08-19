@@ -42,7 +42,7 @@ def show_patt_input(fname):
     print(f"  cost_per_km        : {d['cost_per_km']}   fuel_price: {d['fuel_price']}   eta: {d['eta']}")
     print(f"  marginal_co2       : {d['marginal_co2_emissions']}  -> PATT theta_TR = "
           f"{d['marginal_co2_emissions']/d['eta']:.2f}")
-    print(f"  lambda (patt)      : {d['weighting_factor_patt']}")
+    print(f"  c_CO2 [EUR/t]      : {d.get('c_co2_per_tonne')}  alpha={d.get('obj_alpha')} beta={d.get('obj_beta')}")
     print(f"  demand_by_segment  : per store x segment x weekday [t]:")
     for st, segs in d["demand_by_segment"].items():
         orig = d["id_map"][st]

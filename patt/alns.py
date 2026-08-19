@@ -16,15 +16,23 @@ print("Starting COMPREHENSIVE ALNS Implementation (segment-aware, MOSinLine-read
 print("Implements full ALNS approach: Pattern optimization (Stage 1) + Routing optimization (Stage 2)")
 print("=== DAY-VARYING demand | (R,S) FIFO/LIFO shelf simulation | product segments ===")
 
-# Default product-segment configuration.
-# shelf_life: days (None = no expiry within the weekly planning horizon)
-# theta_FW: kg CO2e per tonne of wasted food, embodied (production-to-shelf) boundary.
-# Order-of-magnitude defaults from representative baskets
-# (ifeu 2020 "an der Supermarktkasse"; Poore & Nemecek 2018, Science).
+# Default product-segment configuration: dry / fresh (chilled) / fnv (fruits & vegetables).
+# shelf_life [days]: None = expiry never binding within the inventory cycle
+#   (dry MHD exceeds the <=6-day cycle by two orders of magnitude);
+#   fresh = 7 (mid of the 4-11 d perishables band, Broekmeulen & van Donselaar 2009,
+#   C&OR 36; chilled parameter source Tromp et al. 2012, IJPE 139);
+#   fnv = 4 (lower edge of the 4-11 d band; F&V as empirical category in
+#   Broekmeulen & van Donselaar 2019, IJPE 209; Porat et al. 2018, PBT 139).
+# theta_FW [kg CO2e per tonne wasted], embodied production-to-shelf boundary.
+#   Derived from ifeu (2020) "Oekologische Fussabdruecke von Lebensmitteln und
+#   Gerichten in Deutschland", Systemgrenze Supermarktkasse (Tab. 1-4):
+#   dry ~1-1.5 (staples-weighted), fresh ~4.1 (consumption-weighted chilled
+#   basket incl. dairy/meat/eggs), fnv ~0.36 (mean over 38 fresh produce items).
+#   Global cross-check: Poore & Nemecek (2018), Science 360.
 DEFAULT_SEGMENTS = {
-    "dry":    {"shelf_life": None, "theta_FW": 1500.0},
-    "fresh":  {"shelf_life": 4,    "theta_FW": 4000.0},
-    "frozen": {"shelf_life": None, "theta_FW": 2500.0},
+    "dry":   {"shelf_life": None, "theta_FW": 1500.0},
+    "fresh": {"shelf_life": 7,    "theta_FW": 4000.0},
+    "fnv":   {"shelf_life": 4,    "theta_FW": 400.0},
 }
 
 class ComprehensiveSolution:
@@ -166,7 +174,7 @@ class CombinedEvaluator:
     """
     def __init__(self, loc, delta, c_fr, waste_fractions, stockout_fractions, fw_emission,
                  D_f, patterns,
-                 c_km, c_fuel, theta_FW, theta_TR, eta, W0, lambda_param, Q,
+                 c_km, c_fuel, theta_FW, theta_TR, eta, W0, c_co2, Q,
                  gamma_f, Q_day_min, Q_day_max,
                  c_purchase=150.0, c_stockout=300.0):
         self.c_fr = c_fr
@@ -188,7 +196,11 @@ class CombinedEvaluator:
         self.W0 = W0
         self.Q = Q
         
-        self.lambda_param = lambda_param
+        # Carbon price [EUR per kg CO2] monetising emissions; optional objective
+        # weights alpha_w (economic) and beta_w (environmental), default 1.0.
+        self.c_co2 = c_co2
+        self.alpha_w = 1.0
+        self.beta_w = 1.0
         
         self.gamma_f = gamma_f
         self.Q_day_min = Q_day_min
@@ -212,8 +224,8 @@ class CombinedEvaluator:
         fw_emission_cost = self.calculate_fw_emission(store, pattern_id)
         stockout_cost = self.c_stockout * self.D_f[store] * sf
         
-        return ((1 - self.lambda_param) * (economic_cost + fw_purchase_cost + stockout_cost) + 
-                self.lambda_param * fw_emission_cost)
+        return (self.alpha_w * (economic_cost + fw_purchase_cost + stockout_cost) +
+                self.beta_w * self.c_co2 * fw_emission_cost)
     
     def calculate_route_cost(self, route, loads):
         if len(route) <= 2:
@@ -233,7 +245,7 @@ class CombinedEvaluator:
             emissions = self.theta_TR * fuel
             pollution_cost += emissions
         
-        total_cost = (1 - self.lambda_param) * transport_cost + self.lambda_param * pollution_cost
+        total_cost = self.alpha_w * transport_cost + self.beta_w * self.c_co2 * pollution_cost
         return total_cost
     
     def is_route_feasible(self, route, loads):
@@ -541,9 +553,8 @@ class ALNSPatternOperators:
             ev = self.evaluator
             wf = ev.waste_fractions[f, r]
             purchase = ev.c_purchase * ev.D_f[f] * wf
-            emission = ev.calculate_fw_emission(f, r)  # segment-weighted
-            lam = ev.lambda_param
-            return (1 - lam) * purchase + lam * emission
+            emission = ev.calculate_fw_emission(f, r)  # segment-weighted, kg CO2
+            return ev.alpha_w * purchase + ev.beta_w * ev.c_co2 * emission
 
         while len(L) < c_stores and O and trials < max_trials:
             trials += 1
@@ -784,8 +795,7 @@ class LNSRoutingOperators:
             transport_cost += ev.c_km * dist + ev.c_fuel * fuel
             emissions = ev.theta_TR * fuel
             pollution_cost += emissions
-        lam = ev.lambda_param
-        return (1.0 - lam) * transport_cost + lam * pollution_cost
+        return ev.alpha_w * transport_cost + ev.beta_w * ev.c_co2 * pollution_cost
 
     def regret_k_insertion(self, solution, day, removed_customers, k=2):
         routes = solution.routes_by_day[day]
@@ -874,7 +884,8 @@ class JointOperators:
         delta_mat = ev.delta
         c_km = ev.c_km
         c_fuel = ev.c_fuel
-        lam = ev.lambda_param
+        aw = ev.alpha_w
+        bw_c = ev.beta_w * ev.c_co2
         theta_TR = ev.theta_TR
         eta = ev.eta
         W0 = ev.W0
@@ -921,14 +932,14 @@ class JointOperators:
             fuel_back = eta * W0 * dist_depot_f
             transport = c_km * d2 + c_fuel * (fuel_out + fuel_back)
             poll = theta_TR * (fuel_out + fuel_back)
-            return (1.0 - lam) * transport + lam * poll
+            return aw * transport + bw_c * poll
 
         def _arc_cost(a, b, load_after_b):
             dist = delta_mat[a, b]
             fuel = eta * (W0 + load_after_b) * dist
             transport = c_km * dist + c_fuel * fuel
             poll = theta_TR * fuel
-            return (1.0 - lam) * transport + lam * poll
+            return aw * transport + bw_c * poll
 
         cache = {}
 
@@ -943,8 +954,8 @@ class JointOperators:
             best_delta = float("inf")
             best_v, best_pos = None, None
             
-            pollution_corr_per_dist = lam * theta_TR * eta * q
-            fuel_corr_per_dist = (1.0 - lam) * c_fuel * eta * q
+            pollution_corr_per_dist = bw_c * theta_TR * eta * q
+            fuel_corr_per_dist = aw * c_fuel * eta * q
             
             for (v, route, loads_old, total_load, suffix_load, prefix_dist) in vehicle_data:
                 if total_load + q > Q + 1e-9:
@@ -1138,9 +1149,11 @@ class ComprehensiveALNS:
             self.loc, self.delta, self.c_fr, self.waste_fractions, self.stockout_fractions,
             self.fw_emission, self.D_f,
             self.patterns, self.c_km, self.c_fuel, self.theta_FW, self.theta_TR, self.eta, 
-            self.W0, self.lambda_param, self.Q,
+            self.W0, self.c_co2, self.Q_plan,
             self.gamma_f, self.Q_day_min, self.Q_day_max,
             c_purchase=self.c_purchase, c_stockout=self.c_stockout)
+        self.evaluator.alpha_w = self.obj_alpha
+        self.evaluator.beta_w = self.obj_beta
 
         # Per-store feasible patterns:
         #  (a) shelf-life filter with SL_eff(f) = min over the store's segments
@@ -1156,7 +1169,7 @@ class ComprehensiveALNS:
                 is_physically_feasible = True
                 for t in range(6):
                     drop = self.p_frt.get((f, r, t), 0.0)
-                    if drop > self.Q or drop > self.gamma_f[f]:
+                    if drop > self.Q_plan or drop > self.gamma_f[f]:
                         is_physically_feasible = False
                         break
                 if is_physically_feasible:
@@ -1165,7 +1178,7 @@ class ComprehensiveALNS:
             if not self.feasible_patterns_by_store[f]:
                 viol_list = []
                 for r in self.R:
-                    worst = max(self.p_frt.get((f, r, t), 0.0) - min(self.Q, self.gamma_f[f]) for t in range(6))
+                    worst = max(self.p_frt.get((f, r, t), 0.0) - min(self.Q_plan, self.gamma_f[f]) for t in range(6))
                     viol_list.append((worst, r))
                 viol_list.sort()
                 self.feasible_patterns_by_store[f] = [r for _, r in viol_list[:3]]
@@ -1173,7 +1186,7 @@ class ComprehensiveALNS:
 
         self.pattern_operators = ALNSPatternOperators(
             self.evaluator, self.stores, self.patterns, self.R, 
-            self.delta, self.p_frt, self.Q, self.gamma_f, 
+            self.delta, self.p_frt, self.Q_plan, self.gamma_f, 
             feasible_patterns_by_store=self.feasible_patterns_by_store,
             alpha=self.params['alpha'])
         
@@ -1182,13 +1195,21 @@ class ComprehensiveALNS:
         self.joint_ops = JointOperators(self)
  
         self.operator_names = [
-            "JOINT DS VisitDays (cover-to-next)",
-            "Proximity",
-            "Sales Volume",
-            "Move-one",
-            "Move-two",
-            "Smart Eco Pattern Optimization"
+            "JOINT single (cover-to-next)",
+            "JOINT pair random (best-of-orders)",
+            "JOINT pair proximity (best-of-orders)",
+            "Smart Eco Pattern Optimization",
+            "Random",
+            "Proximity (Frank)"
         ]
+        # Leg-wise weight snapshots for the operator-learning figure
+        self.weight_history = []
+        # Nearest-neighbour list per store (for proximity pairing)
+        self.nn_sorted = {
+            f: sorted((g for g in self.stores if g != f),
+                      key=lambda g: self.delta[f, g])
+            for f in self.stores
+        }
         n_ops = len(self.operator_names)
         self.operator_weights = [1.0] * n_ops
         self.operator_scores  = [0.0] * n_ops
@@ -1340,6 +1361,16 @@ class ComprehensiveALNS:
         # ---- scalar parameters: instance file overrides defaults (MOSinLine) ----
         self.num_vehicles = int(inst.get("num_vehicles", 50))
         self.Q = float(inst.get("vehicle_capacity", 25.6))
+        # DPPP-AnyLogic feedback knob: plan routes against a REDUCED capacity
+        # Q_plan = truck_buffer * Q, leaving spare capacity in the truck so
+        # that realized order-up-to quantities (demand noise) still fit at
+        # execution time. Execution (DES port / AnyLogic) keeps the true Q.
+        self.truck_buffer = float(inst.get("truck_buffer",
+                                           self.params.get("truck_buffer", 1.0)))
+        self.Q_plan = self.truck_buffer * self.Q
+        if self.truck_buffer < 1.0 - 1e-9:
+            print(f"Planning capacity buffer active: Q_plan = {self.truck_buffer:.3f}"
+                  f" * {self.Q} = {self.Q_plan:.2f} t (execution keeps Q = {self.Q})")
         
         self.c_km = float(inst.get("cost_per_km", 1.12))
         self.c_fuel = float(inst.get("fuel_price", 1.80))
@@ -1352,23 +1383,54 @@ class ComprehensiveALNS:
             self.theta_TR = 2.7
         # legacy scalar fallback only; segment values self.segments[s]["theta_FW"] govern
         self.theta_FW = float(inst.get("theta_FW", 4000.0))
-        self.lambda_param = float(inst.get("weighting_factor_patt", 0.3))
+        # Carbon price: monetises emissions instead of the old lambda weighting.
+        # Main: UBA Handbuch Umweltkosten - Methodenkonvention 4.0 (2026):
+        # climate damage cost 350 EUR2025/t CO2 for 2026 emissions (1% PRTP).
+        # Sensitivity lower bound: German nEHS/BEHG 2026 auction corridor 55-65 EUR/t.
+        # Optional weights alpha (economic) / beta (environmental), default 1.0 each.
+        # Instance file keys take precedence (pipeline-supplied), then params, then default.
+        self.c_co2 = float(inst.get("c_co2_per_tonne",
+                                    self.params.get("c_co2_per_tonne", 350.0))) / 1000.0  # EUR/kg CO2
+        self.obj_alpha = float(inst.get("obj_alpha", self.params.get("obj_alpha", 1.0)))
+        self.obj_beta  = float(inst.get("obj_beta",  self.params.get("obj_beta", 1.0)))
         
         self.c_purchase = float(inst.get("c_purchase", 800.0))
         self.c_stockout = float(inst.get("c_stockout", 100.0))
 
-        self.c_order = 15.0
-        self.c_receipt = 25.0
+        self.c_order = 15.0             # (1) ordering  — unchanged
+        self.c_receipt = 25.0           # (2) receipt   — unchanged
         self.wage_store = 19.9          # w^st
-        self.wage_restock = 39.8        # w^re ~= 2*w^st  (backroom restock)
         self.wage_dc = 22.8             # w^dc
         self.unit_value = self.c_purchase   # u^prc for capital tie-up (~= c^pur)
-        self.capital_rate = 0.10 / 52.0
-        self.t_fill_base = 2.0          # h/t
-        self.t_fill_decay = 0.72
-        self.t_restock_base = 2.0       # h/t
-        self.t_restock_g = 0.30         # CONVEX exponent (1+g)
-        self.t_pick_base = 0.8          # h/t
+        self.capital_rate = 0.10 / 52.0     # (6) capital tie-up — unchanged
+
+        # --- (3)(4) In-store handling: Friedrich (2026) field study, PER SEGMENT ---
+        # Measured per-case times (net replenishment):
+        #   fresh: fill 76 s/case; overflow restock = retrieval 18 + secondary
+        #          stocking 74 = 92 s/case
+        #   dry:   fill 142 s/case; overflow restock = 21 + 134 = 155 s/case
+        #   fnv:   NOT measured by Friedrich -> FRESH values as proxy (footnoted).
+        # Conversion: h/t = (s/case) / 3600 * kappa, kappa = 1000 / case-pack kg.
+        # Case pack 10 kg for all segments (sensitivity 5/15) => kappa = 100.
+        # Linear form (decay = g = 0): Friedrich reports per-case averages and
+        # finds no stable scale effects within category.
+        KG_PER_CASEPACK = float(self.params.get('kg_per_casepack', 10.0))
+        kappa = 1000.0 / KG_PER_CASEPACK               # cases per tonne (=100 @ 10 kg)
+        _fill_sec    = {"fresh": 76.0,  "dry": 142.0, "fnv": 76.0}   # fnv = fresh proxy
+        _restock_sec = {"fresh": 92.0,  "dry": 155.0, "fnv": 92.0}   # fnv = fresh proxy
+        self.t_fill_seg = {s: _fill_sec.get(s, 76.0) / 3600.0 * kappa
+                           for s in self.segment_names}     # h/t: 2.11 / 3.94 / 2.11
+        self.t_restock_seg = {s: _restock_sec.get(s, 92.0) / 3600.0 * kappa
+                              for s in self.segment_names}  # h/t: 2.56 / 4.31 / 2.56
+        # Legacy scalars = fresh rates (fallback when no per-segment split exists)
+        self.t_fill_base    = 76.0 / 3600.0 * kappa    # 2.11 h/t
+        self.t_fill_decay   = 0.0                      # LINEAR (was 0.72)
+        self.t_restock_base = 92.0 / 3600.0 * kappa    # 2.56 h/t
+        self.t_restock_g    = 0.0                      # LINEAR (was 0.30)
+        self.wage_restock   = self.wage_store          # 19.9; no x2 — extra effort is
+                                                       # already in the measured times
+
+        self.t_pick_base = 0.8          # (5) DC picking — unchanged (Sternbeck & Kuhn)
         self.t_pick_decay = 0.68
         
         self._calculate_pattern_costs()
@@ -1586,16 +1648,22 @@ class ComprehensiveALNS:
                     for s in self.segment_names)
     
     def _calculate_pattern_costs(self):
-        """C_fr per PDF eq(5) -- per-day Sternbeck on the SIMULATED p_frt[f,r,t]
-        (aggregate over segments; handling is driven by total tonnage moved),
-        identical to the Gurobi pattern cost:
-          c^ord*m + c^rec*m
-          + w^st * sum_t t^fill_b * min(p,k)^(1-t^fill_d)          (filling, concave)
-          + w^re * sum_t t^re_b  * ((p-k)^+)^(1+t^re_g)            (restock overflow, convex)
-          + w^dc * sum_t t^pick_b * p^(1-t^pick_d)                 (DC picking, concave)
-          + rho * u^prc * 0.5 * mean(p)                            (capital tie-up)
+        """C_fr per PDF eq(5) -- per-day Sternbeck on the SIMULATED p_frt[f,r,t],
+        with PER-SEGMENT in-store handling (Friedrich 2026, linear):
+          c^ord*m + c^rec*m                                     (store-level events)
+          + w^st * sum_t sum_s t^fill_s  * fill_{s,t}           (filling, per segment)
+          + w^st * sum_t sum_s t^re_s    * over_{s,t}           (restock overflow, per segment)
+          + w^dc * sum_t t^pick_b * p^(1-t^pick_d)              (DC picking, concave,
+                                                                 TOTAL tonnage; not
+                                                                 measured per segment)
+          + rho * u^prc * 0.5 * mean(p)                         (capital tie-up, total)
+        The daily filled quantity min(p, k) and overflow (p - k)^+ are split
+        across segments proportionally to the segment delivery quantities
+        p_fsrt (exact under the linear rates). Falls back to the fresh-rate
+        scalars when no per-segment quantities exist (single-segment mode).
         """
         self.c_fr = {}
+        seg_split = bool(getattr(self, "p_fsrt", None))
         for f in self.stores:
             D_week = self.D_f[f]
             sc = self.shelf_capacity[f]
@@ -1615,8 +1683,17 @@ class ComprehensiveALNS:
                     psum += p
                     fill_q = min(p, sc)
                     over_q = max(0.0, p - sc)
-                    if fill_q > 0: cf  += self.t_fill_base    * (fill_q ** (1 - self.t_fill_decay))
-                    if over_q > 0: crs += self.t_restock_base * (over_q ** (1 + self.t_restock_g))
+                    if p > 0 and seg_split:
+                        # effective per-tonne rates from the segment mix of this delivery
+                        rate_fill = sum(self.t_fill_seg[s] * self.p_fsrt.get((f, s, r, t), 0.0)
+                                        for s in self.segment_names) / p
+                        rate_re   = sum(self.t_restock_seg[s] * self.p_fsrt.get((f, s, r, t), 0.0)
+                                        for s in self.segment_names) / p
+                        if fill_q > 0: cf  += rate_fill * fill_q
+                        if over_q > 0: crs += rate_re   * over_q
+                    else:
+                        if fill_q > 0: cf  += self.t_fill_base    * (fill_q ** (1 - self.t_fill_decay))
+                        if over_q > 0: crs += self.t_restock_base * (over_q ** (1 + self.t_restock_g))
                     if p > 0:      cp  += self.t_pick_base    * (p      ** (1 - self.t_pick_decay))
                 cf  *= self.wage_store
                 crs *= self.wage_restock
@@ -1644,7 +1721,7 @@ class ComprehensiveALNS:
             if feas:
                 pattern_assignments[store] = random.choice(feas)
             else:
-                cap = min(self.Q, self.gamma_f[store])
+                cap = min(self.Q_plan, self.gamma_f[store])
                 def worst_violation(r):
                     return max(self.p_frt.get((store, r, t), 0.0) - cap for t in range(6))
                 pattern_assignments[store] = min(self.R, key=worst_violation)
@@ -1692,7 +1769,7 @@ class ComprehensiveALNS:
                 if not can_merge:
                     continue
                 new_load = route_i['load'] + route_j['load']
-                if new_load <= self.Q:
+                if new_load <= self.Q_plan:
                     routes.remove(route_i)
                     routes.remove(route_j)
                     routes.append({'route': new_route, 'load': new_load})
@@ -1861,6 +1938,7 @@ class ComprehensiveALNS:
                 iterations_without_improvement = 0
             if (iteration + 1) % search_leg_size == 0:
                 self._update_operator_weights(tau)
+                self.weight_history.append([iteration + 1] + list(self.operator_weights))
 
         print("\nRunning post-optimization...")
         for day in range(6):
@@ -1919,36 +1997,91 @@ class ComprehensiveALNS:
         c_stores = random.randint(c_min, c_max)
         new_solution = solution.copy()
         touched_days = set()
-        is_joint_op = False 
+        # Stage-1 operator pool (jointset6, aligned with the standalone EJOR code):
+        #   0: JOINT single-store cover-to-next
+        #   1: JOINT pairwise, RANDOM pairing, best-of-orders cheapest insertion
+        #   2: JOINT pairwise, PROXIMITY pairing (seed + global nearest neighbour)
+        #   3: Smart Eco (greedy pattern-side cost, cheap intensifier)
+        #   4: Random (pure diversifier)
+        #   5: Proximity (Frank) — proxy-priced counterpart of operator 2
+        sol_work = new_solution
+        pick_n = min(c_stores, len(self.stores))
+
+        def _process_single(sw, f, td):
+            cand = sw.copy()
+            cand2, t_, est = self.joint_ops.joint_ds_visitdays_cover_to_next(cand, f)
+            if est == float("inf") or cand2 is None:
+                return sw, td
+            return cand2, td | set(t_)
+
+        def _process_pair(sw, a, b, td):
+            best_cand = None
+            best_cost = float("inf")
+            best_td = set()
+            for first, second in ((a, b), (b, a)):
+                cand = sw.copy()
+                # pre-remove the partner so 'first' is optimised on routes
+                # with BOTH stores absent
+                self.joint_ops.remove_node_all_days(cand.routes_by_day, second)
+                c1, td1, est1 = self.joint_ops.joint_ds_visitdays_cover_to_next(cand, first)
+                if est1 == float("inf") or c1 is None:
+                    continue
+                c2, td2, est2 = self.joint_ops.joint_ds_visitdays_cover_to_next(c1, second)
+                if est2 == float("inf") or c2 is None:
+                    continue
+                c2._calculate_cost()
+                if c2.cost < best_cost:
+                    best_cost = c2.cost
+                    best_cand = c2
+                    best_td = set(td1) | set(td2)
+            if best_cand is None:
+                return sw, td
+            return best_cand, td | best_td
+
         if operator_idx == 0:
-            is_joint_op = True
-            pick_n = min(c_stores, len(self.stores))
+            # single-store joint, original behaviour
+            for f in random.sample(self.stores, pick_n):
+                sol_work, touched_days = _process_single(sol_work, f, touched_days)
+        elif operator_idx == 1:
+            # pairwise joint, random pairing
             stores_to_change = random.sample(self.stores, pick_n)
-            touched_days = set()
-            sol_work = new_solution
-            for f in stores_to_change:
-                cand = sol_work.copy()
-                cand2, td, est = self.joint_ops.joint_ds_visitdays_cover_to_next(cand, f)
-                if est == float("inf") or cand2 is None:
-                    continue
-                r_new = cand2.pattern_assignments.get(f, None)
-                feas = self.feasible_patterns_by_store.get(f, [])
-                if feas and (r_new not in feas):
-                    continue
-                sol_work = cand2
-                touched_days |= set(td)
-            sol_work._calculate_cost()
-            return sol_work, operator_idx, touched_days, is_joint_op
-        if operator_idx == 1:
-            changes = self.pattern_operators.proximity_operator(new_solution, c_stores)
+            idx = 0
+            while idx < len(stores_to_change):
+                if idx + 1 < len(stores_to_change):
+                    a, b = stores_to_change[idx], stores_to_change[idx + 1]
+                    idx += 2
+                    sol_work, touched_days = _process_pair(sol_work, a, b, touched_days)
+                else:
+                    sol_work, touched_days = _process_single(sol_work, stores_to_change[idx], touched_days)
+                    idx += 1
         elif operator_idx == 2:
-            changes = self.pattern_operators.sales_volume_operator(new_solution, c_stores)
-        elif operator_idx == 3:
-            changes = self.pattern_operators.move_one_operator(new_solution, c_stores)
-        elif operator_idx == 4:
-            changes = self.pattern_operators.move_two_operator(new_solution, c_stores)
-        else:
+            # pairwise joint, proximity pairing: random seeds, each paired with
+            # its nearest not-yet-used neighbour (global, not sample-restricted)
+            used = set()
+            seeds = random.sample(self.stores, min(max(1, pick_n // 2), len(self.stores)))
+            for s in seeds:
+                if s in used or len(used) + 2 > pick_n + 1:
+                    continue
+                partner = next((g for g in self.nn_sorted[s] if g not in used), None)
+                if partner is None:
+                    sol_work, touched_days = _process_single(sol_work, s, touched_days)
+                    used.add(s)
+                    continue
+                used.add(s); used.add(partner)
+                sol_work, touched_days = _process_pair(sol_work, s, partner, touched_days)
+
+        if operator_idx <= 2:
+            sol_work._calculate_cost()
+            return sol_work, operator_idx, touched_days, True
+        # Non-joint operators: pattern change only, routing rebuilt in stage 2
+        if operator_idx == 3:
             changes = self.pattern_operators.smart_eco_pattern_operator(new_solution, c_stores)
+        elif operator_idx == 4:
+            changes = self.pattern_operators.random_operator(new_solution, c_stores)
+        else:
+            # Frank's proximity operator: strongest conceptual competitor to the
+            # JOINT pair proximity operator (same intent, proxy- vs exact-priced).
+            changes = self.pattern_operators.proximity_operator(new_solution, c_stores, beta=self.params.get("beta", 0.8))
         for f, r_new in changes:
             cur = new_solution.pattern_assignments.get(f, None)
             if cur is None or r_new == cur:
@@ -2000,7 +2133,7 @@ class ComprehensiveALNS:
             if not can_merge:
                 continue
             new_load = route_i['load'] + route_j['load']
-            if new_load <= self.Q:
+            if new_load <= self.Q_plan:
                 routes.remove(route_i)
                 routes.remove(route_j)
                 routes.append({'route': new_route, 'load': new_load})
@@ -2220,23 +2353,30 @@ class ComprehensiveALNS:
         return -g * initial_cost / np.log(0.5)
     
     def _select_operator(self):
-        best_op = -1
-        max_ucb = -float('inf')
-        total_calls = sum(self.operator_total_calls)
-        for i in range(len(self.operator_names)):
-            avg_reward = self.operator_total_score[i] / (self.operator_total_calls[i] + 1e-6)
-            exploration = self.ucb_c * math.sqrt(2 * math.log(total_calls + 1) / (self.operator_total_calls[i] + 1e-6))
-            ucb_value = avg_reward + exploration
-            if ucb_value > max_ucb:
-                max_ucb = ucb_value
-                best_op = i
-        return best_op
-    
+        # Roulette wheel selection (Ropke & Pisinger 2006; Frank et al. 2021):
+        # P(h) = rho_h / sum_h' rho_h'
+        total = sum(self.operator_weights)
+        if total <= 1e-12:
+            return random.randint(0, len(self.operator_names) - 1)
+        pick = random.random() * total
+        acc = 0.0
+        for i, w in enumerate(self.operator_weights):
+            acc += w
+            if pick <= acc:
+                return i
+        return len(self.operator_names) - 1
+
     def _update_operator_weights(self, tau):
+        # Frank et al. (2021) Eq. (23): rho_h = (1 - tau) * rho_h + tau * (pi_h / theta_h)
+        # tau = params["r"] = 0.1; called every search leg (50 iterations).
+        # Operators not used in the leg keep their weight unchanged (R&P convention).
         for i in range(len(self.operator_names)):
-            self.operator_scores[i] = 0
+            if self.operator_uses[i] > 0:
+                avg_score = self.operator_scores[i] / self.operator_uses[i]
+                self.operator_weights[i] = (1.0 - tau) * self.operator_weights[i] + tau * avg_score
+            self.operator_scores[i] = 0.0
             self.operator_uses[i] = 0
-    
+
     def _apply_random_destruction(self, solution):
         new_solution = solution.copy()
         num_to_change = len(self.stores) // 2
@@ -2246,7 +2386,7 @@ class ComprehensiveALNS:
             if feas:
                 new_solution.pattern_assignments[store] = random.choice(feas)
             else:
-                cap = min(self.Q, self.gamma_f[store])
+                cap = min(self.Q_plan, self.gamma_f[store])
                 def worst_violation(r):
                     return max(self.p_frt.get((store, r, t), 0.0) - cap for t in range(6))
                 new_solution.pattern_assignments[store] = min(self.R, key=worst_violation)
@@ -2254,7 +2394,7 @@ class ComprehensiveALNS:
     
     def _enforce_capacity_for_day(self, solution, day):
         routes = solution.routes_by_day[day]
-        Q = self.Q
+        Q = self.Q_plan
         idle_vehicles = [v for v, r in routes.items() if len(r) == 2 and r[0] == 0 and r[1] == 0]
         def route_total_load(route):
             total = 0.0
@@ -2375,7 +2515,8 @@ def load_instance(json_path):
     }
     # MOSinLine integration: pass through all extra coefficients from the
     # instance file (distances, vehicle_capacity, cost_per_km,
-    # marginal_co2_emissions, weighting_factor_patt, vehicle_empty_weight,
+    # marginal_co2_emissions, c_co2_per_tonne, obj_alpha, obj_beta,
+    # vehicle_empty_weight,
     # segments, demand_by_segment, ...)
     for k, v in data.items():
         if k not in ret:
@@ -2383,7 +2524,7 @@ def load_instance(json_path):
     return ret
 
 
-def print_cost_and_metrics(title, lam,
+def print_cost_and_metrics(title, c_co2, alpha_w, beta_w,
                            rpe, rfp, rso,          # pattern side (EUR)
                            rtd, rtf,               # transport side (EUR): dist / fuel
                            rfe, rtp,               # environmental (kg CO2)
@@ -2393,21 +2534,22 @@ def print_cost_and_metrics(title, lam,
     """Structured cost report:
        [1] Economic costs  -> pattern-side subtotal + transport-side subtotal
        [2] Environmental   -> FW emission + transport pollution
-       [3] Weighted objective
+       [3] Monetised objective
        [4] Operational metrics
     """
     pattern_side = rpe + rfp + rso
     transport_side = rtd + rtf
     econ = pattern_side + transport_side          # EUR, unweighted
     env = rfe + rtp                               # kg CO2, unweighted
-    w_econ = (1 - lam) * econ
-    w_env = lam * env
+    carbon_cost = c_co2 * env                     # EUR (monetised emissions)
+    w_econ = alpha_w * econ
+    w_env = beta_w * carbon_cost
     obj = w_econ + w_env
 
     bar = "=" * 60
     sub = "-" * 60
     print(f"\n{bar}")
-    print(f"{title}  (lambda = {lam})")
+    print(f"{title}  (c_CO2 = {c_co2*1000:.0f} EUR/t, alpha = {alpha_w}, beta = {beta_w})")
     print(bar)
 
     # ---------- [1] ECONOMIC COSTS ----------
@@ -2431,12 +2573,12 @@ def print_cost_and_metrics(title, lam,
     print(sub)
     print(f"    TOTAL ENVIRONMENTAL IMPACT          : {env:12.2f}  kg CO2")
 
-    # ---------- [3] WEIGHTED OBJECTIVE ----------
-    print(f"\n[3] WEIGHTED OBJECTIVE")
-    print(f"      (1-lambda) * economic  = {1-lam:.2f} * {econ:11.2f} = {w_econ:12.2f}")
-    print(f"       lambda    * environ.  = {lam:.2f} * {env:11.2f} = {w_env:12.2f}")
+    # ---------- [3] MONETISED OBJECTIVE ----------
+    print(f"\n[3] MONETISED OBJECTIVE (EUR)")
+    print(f"      alpha * economic          = {alpha_w:.2f} * {econ:11.2f} = {w_econ:12.2f}")
+    print(f"      beta * c_CO2 * emissions  = {beta_w:.2f} * {c_co2:.3f} * {env:9.2f} = {w_env:12.2f}")
     print(sub)
-    print(f"    TOTAL OBJECTIVE (scalarised)        : {obj:12.2f}")
+    print(f"    TOTAL OBJECTIVE (EUR)               : {obj:12.2f}")
 
     # ---------- [4] OPERATIONAL METRICS ----------
     print(f"\n[4] OPERATIONAL METRICS")
@@ -2514,20 +2656,21 @@ def save_comprehensive_results(solution, instance_data, runtime):
     total_load = sum(solution.p_frt.get((s, solution.pattern_assignments[s], t), 0.0)
                      for s in solution.stores for t in range(6))
 
-    lambda_val = ev.lambda_param
-    
-    final_obj = ((1 - lambda_val) * (raw_pattern_econ_cost + raw_fw_purchase_cost + raw_stockout_cost + raw_transport_econ_cost) + 
-                 lambda_val * (raw_fw_emission_cost + raw_pollution_cost))
+    final_obj = (ev.alpha_w * (raw_pattern_econ_cost + raw_fw_purchase_cost + raw_stockout_cost + raw_transport_econ_cost) +
+                 ev.beta_w * ev.c_co2 * (raw_fw_emission_cost + raw_pollution_cost))
     
     final_violations = solution.validate_constraints()
     
     results_data = {
         "instance": instance_name,
         "solver": "comprehensive_alns_segments",
-        "lambda": lambda_val,
+        "c_co2_per_tonne": ev.c_co2 * 1000.0,
+        "obj_alpha": ev.alpha_w,
+        "obj_beta": ev.beta_w,
         "objective_value": final_obj,
         "economic_cost": raw_pattern_econ_cost + raw_fw_purchase_cost + raw_stockout_cost + raw_transport_econ_cost,
-        "environmental_cost": raw_fw_emission_cost + raw_pollution_cost,
+        "emissions_kg": raw_fw_emission_cost + raw_pollution_cost,
+        "carbon_cost": ev.c_co2 * (raw_fw_emission_cost + raw_pollution_cost),
         "pattern_cost": raw_pattern_econ_cost,
         "fw_purchase_cost": raw_fw_purchase_cost,
         "stockout_cost": raw_stockout_cost,
@@ -2562,7 +2705,7 @@ def save_comprehensive_results(solution, instance_data, runtime):
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "solver": "comprehensive_alns_segments",
         "objective_value": final_obj,
-        "lambda": lambda_val,
+        "c_co2_per_tonne": ev.c_co2 * 1000.0,
         "runtime": runtime,
         "pattern_assignments": {},
         "daily_routes": {},
@@ -2576,8 +2719,9 @@ def save_comprehensive_results(solution, instance_data, runtime):
             "fw_emission_cost": raw_fw_emission_cost,
             "transport_pollution_cost": raw_pollution_cost,
             "total_economic": raw_pattern_econ_cost + raw_fw_purchase_cost + raw_stockout_cost + raw_transport_econ_cost,
-            "total_environmental": raw_fw_emission_cost + raw_pollution_cost,
-            "weighted_objective": final_obj
+            "total_emissions_kg": raw_fw_emission_cost + raw_pollution_cost,
+            "carbon_cost": ev.c_co2 * (raw_fw_emission_cost + raw_pollution_cost),
+            "monetised_objective": final_obj
         },
         "constraint_violations": final_violations
     }
@@ -2729,6 +2873,11 @@ def default_algorithm_params():
         "routing_no_improve_limit": 30,
         "post_unsuccessful_limit": 2000,
         "p_fifo": 0.70,
+        "kg_per_casepack": 10.0,   # Friedrich (2026) conversion; sensitivity: 5 / 15
+        "c_co2_per_tonne": 350.0,  # UBA Methodenkonvention 4.0 (2026), 1% PRTP; sensitivity: 65 (nEHS 2026)
+        "obj_alpha": 1.0,          # weight on economic costs
+        "obj_beta": 1.0,           # weight on carbon cost
+        "truck_buffer": 1.0,       # planning capacity factor: Q_plan = b * Q (execution keeps Q)
     }
 
 
@@ -2806,7 +2955,8 @@ def main(instance_file_name=None, algorithm_params=None, max_iterations=None,
         fw_rate, _, _ = compute_food_waste_rate(best_solution)
         so_rate, _, _ = compute_stockout_rate(best_solution)
         print_cost_and_metrics(
-            "COMPREHENSIVE ALNS COST BREAKDOWN", best_solution.evaluator.lambda_param,
+            "COMPREHENSIVE ALNS COST BREAKDOWN", best_solution.evaluator.c_co2,
+            best_solution.evaluator.alpha_w, best_solution.evaluator.beta_w,
             results["pattern_cost"], results["fw_purchase_cost"], results["stockout_cost"],
             results["transport_dist_cost"], results["transport_fuel_cost"],
             results["food_waste_emission_cost"], results["transport_pollution_cost"],
@@ -2815,6 +2965,13 @@ def main(instance_file_name=None, algorithm_params=None, max_iterations=None,
         op_df = alns.build_operator_performance_table()
         print("\nOperator performance (Stage-1 pattern operators):")
         print(op_df.to_string(index=False))
+        # Leg-wise roulette weights -> CSV for the operator-learning figure
+        if alns.weight_history:
+            wh_df = pd.DataFrame(alns.weight_history,
+                                 columns=["iteration"] + alns.operator_names)
+            wh_file = os.path.join("results", f"operator_weights_{instance_name}.csv")
+            wh_df.to_csv(wh_file, index=False)
+            print(f"\n\u2705 Leg-wise operator weights saved to {wh_file}")
     
     return best_solution, instance_data
 

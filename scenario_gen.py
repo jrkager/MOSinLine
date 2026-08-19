@@ -3,7 +3,7 @@ import random
 from typing import Dict, List, Tuple, Any
 
 
-DEFAULT_SEGMENT_SHARES = {"DRY": 0.35, "FRESH": 0.50, "FROZEN": 0.15}
+DEFAULT_SEGMENT_SHARES = {"DRY": 0.35, "FRESH": 0.50, "FNV": 0.15}
 
 # Mon..Sat demand profile (German grocery shape: strong Fri/Sat), mean = 1
 DEFAULT_WEEKDAY_WEIGHTS = [0.90, 0.85, 0.90, 1.00, 1.20, 1.15]
@@ -15,7 +15,7 @@ DEFAULT_SCENARIO_SPECS = [
     {"name": "growth_20pct", "global_scale": 1.20},
     # 3: segment shift toward fresh — same tonnage, different composition;
     #    only visible to the pipeline because PATT is now segment-aware
-    {"name": "fresh_shift", "share_shift": {"FRESH": +0.10, "DRY": -0.07, "FROZEN": -0.03}},
+    {"name": "fresh_shift", "share_shift": {"FRESH": +0.10, "DRY": -0.07, "FNV": -0.03}},
 ]
 
 
@@ -147,13 +147,13 @@ if __name__ == "__main__":
         MONDAY = 0; TUESDAY = 1; WEDNESDAY = 2; THURSDAY = 3; FRIDAY = 4; SATURDAY = 5
 
     class ProductClass(Enum):
-        DRY = 0; FRESH = 1; FROZEN = 2
+        DRY = 0; FRESH = 1; FNV = 2
 
     stores = [12, 77, 49, 9, 1]
     demands, names, base = generate_scenarios(stores, ProductClass, Weekday, seed=42)
 
     print("Scenarios:", names)
-    print(f"\n{'store':>6} {'scenario':>14} {'weekly t':>9} {'dry%':>6} {'fresh%':>7} {'frozen%':>8} {'Sat/Mon':>8}")
+    print(f"\n{'store':>6} {'scenario':>14} {'weekly t':>9} {'dry%':>6} {'fresh%':>7} {'fnv%':>8} {'Sat/Mon':>8}")
     for k in demands:
         for f in stores:
             weekly = sum(demands[k][(f, pc, w)] for pc in ProductClass for w in Weekday)
@@ -162,7 +162,7 @@ if __name__ == "__main__":
             sat = sum(demands[k][(f, pc, Weekday.SATURDAY)] for pc in ProductClass)
             print(f"{f:>6} {names[k]:>14} {weekly:>9.2f} "
                   f"{seg['DRY']/weekly*100:>5.1f}% {seg['FRESH']/weekly*100:>6.1f}% "
-                  f"{seg['FROZEN']/weekly*100:>7.1f}% {sat/mon:>8.2f}")
+                  f"{seg['FNV']/weekly*100:>7.1f}% {sat/mon:>8.2f}")
 
     print("\nVehicle feasibility check (Q=25.6):")
     check_scenarios_against_vehicle(demands, names, stores, ProductClass, Weekday, Q=25.6)

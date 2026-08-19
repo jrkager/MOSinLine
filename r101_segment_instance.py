@@ -19,7 +19,7 @@ DEMAND_DIVISOR      = 8.0    # Solomon demand -> daily mean units (DPPP conventi
 DAY_OF_WEEK_MULTIPLIERS = [0.85, 0.90, 1.00, 1.05, 1.10, 1.10]  # Mon..Sat
 
 # Segment split of every store's demand (matches the smoke test A/B/C = 52/35/13)
-SEGMENT_SHARES = {"DRY": 0.52, "FRESH": 0.35, "FROZEN": 0.13}
+SEGMENT_SHARES = {"DRY": 0.52, "FRESH": 0.35, "FNV": 0.13}
 
 # RLRP demand scenarios (systematic factors ON TOP of the same base draws,
 # so scenarios differ only by the intended structural shift, not by noise):

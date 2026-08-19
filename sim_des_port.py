@@ -2,11 +2,15 @@ import math
 import numpy as np
 from dataclasses import dataclass, field
 
-PRODUCTS = ["A", "B", "C"]                  # A=fresh, B=dry, C=frozen
-SEG_OF = {"A": "fresh", "B": "dry", "C": "frozen"}
-THETA_FW = {"A": 4000.0, "B": 1500.0, "C": 2500.0}   # kg CO2e per unit (1 t)
-SHELF_LIFE_A = 4
+PRODUCTS = ["A", "B", "C"]                  # A=fresh, B=dry, C=fnv (fruits & vegetables)
+SEG_OF = {"A": "fresh", "B": "dry", "C": "fnv"}
+THETA_FW = {"A": 4000.0, "B": 1500.0, "C": 400.0}    # kg CO2e per unit (1 t); ifeu 2020
+# Per-product shelf life [days]; None = never expires within the cycle.
+SHELF_LIFE = {"A": 7, "B": None, "C": 4}
 NO_EXPIRY = 10 ** 9
+def _sl_of(p):
+    sl = SHELF_LIFE.get(p)
+    return sl if sl is not None else NO_EXPIRY
 
 Q_UNITS = 25.6
 EMPTY_KG = 14400.0
@@ -152,14 +156,17 @@ class DESPort:
             skipped_today = [False] * self.N
             piggybacked_today = [False] * self.N
 
-            # ---- 05:00 (1) expiry: product A only ----
+            # ---- 05:00 (1) expiry: every product with finite shelf life (A, C) ----
             for i in range(self.N):
-                sl = shelves[i]["A"]
-                fresh_kept = [b for b in sl if b[1] > sim_day]
-                expired = _batch_qty(sl) - _batch_qty(fresh_kept)
-                if expired > 1e-9 and rec:
-                    k.waste["A"] += expired
-                shelves[i]["A"] = fresh_kept
+                for p in PRODUCTS:
+                    if SHELF_LIFE.get(p) is None:
+                        continue
+                    sl = shelves[i][p]
+                    kept = [b for b in sl if b[1] > sim_day]
+                    expired = _batch_qty(sl) - _batch_qty(kept)
+                    if expired > 1e-9 and rec:
+                        k.waste[p] += expired
+                    shelves[i][p] = kept
 
             # ---- 05:00 (2) LEAD-1: today's planned arrival ----
             for i in range(self.N):
@@ -183,7 +190,7 @@ class DESPort:
                 for p in PRODUCTS:
                     q = deliver_today[i][p]
                     if q > 1e-9:
-                        exp = sim_day + (SHELF_LIFE_A if p == "A" else NO_EXPIRY)
+                        exp = sim_day + _sl_of(p)
                         shelves[i][p].append([q, exp])
 
             # ---- 06:00 route execution ----
@@ -259,7 +266,7 @@ class DESPort:
                                 q = min(spare, topup[p])
                                 if q <= 1e-9:
                                     continue
-                                exp = sim_day + (SHELF_LIFE_A if p == "A" else NO_EXPIRY)
+                                exp = sim_day + _sl_of(p)
                                 shelves[j][p].append([q, exp])
                                 loads.setdefault(j, {pp: 0 for pp in PRODUCTS})
                                 loads[j][p] += q

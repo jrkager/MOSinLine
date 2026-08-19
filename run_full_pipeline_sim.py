@@ -10,7 +10,7 @@ BAR = "=" * 100
 PATT_ITER = 25
 SIM_WEEKS = 52
 SIM_RUNS = 2
-SEG2PROD = {"fresh": "A", "dry": "B", "frozen": "C"}
+SEG2PROD = {"fresh": "A", "dry": "B", "fnv": "C"}
 
 
 def build_sim_inputs(a, solution, instance_data):

@@ -5,7 +5,7 @@ import patt.alns as alns
 from sim_des_port import (DESPort, StoreCfg, PRODUCTS, THETA_FW,
                           C_STOCKOUT, C_PURCHASE, Q_UNITS)
 
-SEG2PROD = {"fresh": "A", "dry": "B", "frozen": "C"}
+SEG2PROD = {"fresh": "A", "dry": "B", "fnv": "C"}
 PATT_ITER = 25
 SIM_WEEKS, SIM_RUNS = 52, 3
 DAYN = ["Mon","Tue","Wed","Thu","Fri","Sat"]
